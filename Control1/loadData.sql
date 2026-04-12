@@ -193,7 +193,7 @@ WITH odp_source AS (
 		((o."Order_id" * 3) % 12) + 1 AS product_id
 	FROM "Order" o
 )
-INSERT INTO "Order_Detail_Product" ("Order_Detail_Product_id", "Order_id", "Product_id")
+INSERT INTO "Order_Detail_Product" ("Order_Detail_Product_id", "OrderDetail_id", "Product_id")
 SELECT
 	row_number() OVER (ORDER BY s.order_id),
 	s.order_id,
@@ -202,12 +202,12 @@ FROM odp_source s;
 
 INSERT INTO "Order_Detail" ("OrderDetail_id", "Client_id", "Order_id", "Total_Price")
 SELECT
-	row_number() OVER (ORDER BY o."Order_id"),
+	o."Order_id",
 	o."Client_id",
 	o."Order_id",
 	p."Price" AS total_price
 FROM "Order" o
-JOIN "Order_Detail_Product" odp ON odp."Order_id" = o."Order_id"
+JOIN "Order_Detail_Product" odp ON odp."OrderDetail_id" = o."Order_id"
 JOIN "Product" p ON p."Product_id" = odp."Product_id";
 
 COMMIT;

@@ -92,7 +92,7 @@ CREATE TABLE "Order_Detail" (
 DROP TABLE IF EXISTS "Order_Detail_Product" CASCADE;
 CREATE TABLE "Order_Detail_Product" (
   "Order_Detail_Product_id" INTEGER PRIMARY KEY,
-  "Order_id" INTEGER REFERENCES "Order"("Order_id"),
+  "OrderDetail_id" INTEGER REFERENCES "Order"("Order_id"),
   "Product_id" INTEGER REFERENCES "Product"("Product_id")
 );
 
