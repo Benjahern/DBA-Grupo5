@@ -11,6 +11,47 @@ WITH Conteo AS (
 -- Consulta 2 {Marco}
 -- Producto menos pedidos por compañía.
 
+-- Se cuenta los productos (Es casi lo mismo que el ejemplo de clases)
+WITH CountProd AS (
+    SELECT 
+    p."Name" AS ProdName,
+    p."Company_id",
+    p."Product_id",
+    COUNT(odp."Product_id") AS Cant
+    FROM "Product" p
+-- Acá la gracia, si no hay "match" del pedido y el producto lo deja como 0
+-- y no inventa info, luego lo agrupé por producto y compañia
+    LEFT JOIN "Order_Detail_Product" odp ON p."Product_id" = odp."Product_id"
+    GROUP BY p."Product_id", p."Company_id", p."Name"
+),
+
+-- Ojo, solo conté en el paso anterior, ahora es cuando lo ordenamos
+
+OrderProducts AS (
+    SELECT
+    "Company_id",
+    ProdName,
+    Cant,
+
+-- La linea del RANK sirve para ordenar los productos por compañía, el que tenga menos pedidos
+-- va a ser el número 1, el segundo número 2, etc.
+-- Y como está ordenado ascendentemente, entonces el primero va a ser si o si el que tenga menos pedidos
+    RANK() OVER (PARTITION BY "Company_id" ORDER BY Cant ASC) AS Order
+    -- Llamado a la "Función" antes definida para contar los productos por compañía
+    FROM CountProd
+)
+
+-- Finalmente muestra la consulta con el producto menos pedido por compañía.  
+SELECT
+    c."Name" AS Compania,
+    op.ProdName AS Producto_Menos_Pedido,
+    op.Cant AS Cantidad_Pedidos
+FROM OrderProducts op
+JOIN "Company" c ON op."Company_id" = c."Company_id"
+-- Solo muestra el producto menos pedido por compañía (el que tenga el número 1 en la función RANK)
+WHERE op.Order = 1;
+
+
 -- Consulta 3 {}
 -- Medios de transporte más usados para repartir los pedidos
 -- por comuna de un cliente.
