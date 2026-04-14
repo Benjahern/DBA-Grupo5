@@ -2,11 +2,23 @@
 -- Lista de clientes con más pedidos por compañía.
 WITH Conteo AS ( 
     SELECT
-        com.Name AS Compania,
-        c.Name AS Cliente,
-        COUNT(od.OrderDetail_id) AS total
-        
+    com."Name" AS Compania,
+    c."Name" AS Cliente,
+    COUNT(DISTINCT od."OrderDetail_id") AS total
+    FROM "Client" c 
+    JOIN "Order_Detail" od ON c."Client_id" = od."Client_id"
+    JOIN "Order_Detail_Product" odp ON od."OrderDetail_id" = odp."OrderDetail_id"
+    JOIN "Product" p ON odp."Product_id" = p."Product_id"
+    JOIN "Company" com ON p."Company_id" = com."Company_id"
+    GROUP BY com."Name", c."Name"
+),
+MasPedidos AS (
+    SELECT Compania, Cliente, total,
+    RANK() OVER(PARTITION BY Compania ORDER BY total DESC) as posicion FROM Conteo
 )
+SELECT Compania, Cliente, total
+FROM MasPedidos WHERE posicion = 1;
+        
 
 -- Consulta 2 {Marco}
 -- Producto menos pedidos por compañía.

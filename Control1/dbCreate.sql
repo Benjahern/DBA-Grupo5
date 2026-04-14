@@ -14,13 +14,13 @@ CREATE TABLE "Address" (
 DROP TABLE IF EXISTS "Commune" CASCADE;
 CREATE TABLE "Commune" (
   "Commune_id" INTEGER PRIMARY KEY,
+  "Region_id" INTEGER REFERENCES "Region"("Region_id"),
   "Name" VARCHAR(80)
 );
 
 DROP TABLE IF EXISTS "Region" CASCADE;
 CREATE TABLE "Region" (
   "Region_id" INTEGER PRIMARY KEY,
-  "Commune_id" INTEGER REFERENCES "Commune"("Commune_id"),
   "Name" VARCHAR(80)
 );
 
