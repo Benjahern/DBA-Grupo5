@@ -11,6 +11,12 @@ CREATE TABLE "Address" (
   "Name" VARCHAR(80)
 );
 
+DROP TABLE IF EXISTS "Region" CASCADE;
+CREATE TABLE "Region" (
+  "Region_id" INTEGER PRIMARY KEY,
+  "Name" VARCHAR(80)
+);
+
 DROP TABLE IF EXISTS "Commune" CASCADE;
 CREATE TABLE "Commune" (
   "Commune_id" INTEGER PRIMARY KEY,
@@ -18,11 +24,6 @@ CREATE TABLE "Commune" (
   "Name" VARCHAR(80)
 );
 
-DROP TABLE IF EXISTS "Region" CASCADE;
-CREATE TABLE "Region" (
-  "Region_id" INTEGER PRIMARY KEY,
-  "Name" VARCHAR(80)
-);
 
 DROP TABLE IF EXISTS "Company" CASCADE;
 CREATE TABLE "Company" (

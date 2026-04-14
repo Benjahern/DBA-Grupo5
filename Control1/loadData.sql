@@ -42,37 +42,40 @@ SELECT
 	'Direccion Complementaria ' || i
 FROM generate_series(13, 40) AS gs(i);
 
-INSERT INTO "Commune" ("Commune_id", "Name") VALUES
-	(1, 'Santiago'),
-	(2, 'Providencia'),
-	(3, 'Ñuñoa'),
-	(4, 'Maipú'),
-	(5, 'La Florida'),
-	(6, 'San Miguel'),
-	(7, 'Las Condes'),
-	(8, 'Vitacura'),
-	(9, 'Lo Barnechea'),
-	(10, 'Peñalolén'),
-	(11, 'La Reina'),
-	(12, 'Macul'),
-	(13, 'Independencia'),
-	(14, 'Recoleta'),
-	(15, 'Conchalí'),
-	(16, 'Renca'),
-	(17, 'Quilicura'),
-	(18, 'Pudahuel'),
-	(19, 'Cerro Navia'),
-	(20, 'Lo Prado'),
-	(21, 'Estación Central'),
-	(22, 'Cerrillos'),
-	(23, 'Maipú Poniente'),
-	(24, 'San Joaquín'),
-	(25, 'San Ramón'),
-	(26, 'La Granja'),
-	(27, 'La Pintana'),
-	(28, 'El Bosque'),
-	(29, 'Puente Alto'),
-	(30, 'Pirque');
+INSERT INTO "Region" ("Region_id", "Name") VALUES
+	(1, 'Metropolitana');
+
+INSERT INTO "Commune" ("Commune_id", "Name", "Region_id") VALUES
+    (1, 'Santiago', 1),
+    (2, 'Providencia', 1),
+    (3, 'Ñuñoa', 1),
+    (4, 'Maipú', 1),
+    (5, 'La Florida', 1),
+    (6, 'San Miguel', 1),
+    (7, 'Las Condes', 1),
+    (8, 'Vitacura', 1),
+    (9, 'Lo Barnechea', 1),
+    (10, 'Peñalolén', 1),
+    (11, 'La Reina', 1),
+    (12, 'Macul', 1),
+    (13, 'Independencia', 1),
+    (14, 'Recoleta', 1),
+    (15, 'Conchalí', 1),
+    (16, 'Renca', 1),
+    (17, 'Quilicura', 1),
+    (18, 'Pudahuel', 1),
+    (19, 'Cerro Navia', 1),
+    (20, 'Lo Prado', 1),
+    (21, 'Estación Central', 1),
+    (22, 'Cerrillos', 1),
+    (23, 'Maipú Poniente', 1),
+    (24, 'San Joaquín', 1),
+    (25, 'San Ramón', 1),
+    (26, 'La Granja', 1),
+    (27, 'La Pintana', 1),
+    (28, 'El Bosque', 1),
+    (29, 'Puente Alto', 1),
+    (30, 'Pirque', 1);
 
 INSERT INTO "Commune_Address" ("Commune_Address_id", "Commune_id", "Address_id")
 SELECT
@@ -88,13 +91,7 @@ SELECT
 	30 + i
 FROM generate_series(1, 10) AS gs(i);
 
-INSERT INTO "Region" ("Region_id", "Commune_id", "Name") VALUES
-	(1, 1, 'Metropolitana'),
-	(2, 2, 'Metropolitana'),
-	(3, 3, 'Metropolitana'),
-	(4, 4, 'Metropolitana'),
-	(5, 5, 'Metropolitana'),
-	(6, 6, 'Metropolitana');
+
 
 INSERT INTO "Company" ("Company_id", "Name") VALUES
 	(1, 'Distribuidora Andina'),
@@ -187,27 +184,33 @@ SELECT
 	)::timestamp AS order_date
 FROM generate_series(1, 140) AS gs(i);
 
+WITH detail_source AS (
+    SELECT
+        o."Order_id",
+        o."Client_id",
+        ((o."Order_id" * 3) % 12) + 1 AS product_id
+    FROM "Order" o
+)
+INSERT INTO "Order_Detail" ("OrderDetail_id", "Client_id", "Order_id", "Total_Price")
+SELECT
+    ds."Order_id",
+    ds."Client_id",
+    ds."Order_id",
+    p."Price" AS total_price
+FROM detail_source ds
+JOIN "Product" p ON p."Product_id" = ds.product_id;
+
 WITH odp_source AS (
-	SELECT
-		o."Order_id" AS order_id,
-		((o."Order_id" * 3) % 12) + 1 AS product_id
-	FROM "Order" o
+    SELECT
+        o."Order_id" AS order_id,
+        ((o."Order_id" * 3) % 12) + 1 AS product_id
+    FROM "Order" o
 )
 INSERT INTO "Order_Detail_Product" ("Order_Detail_Product_id", "OrderDetail_id", "Product_id")
 SELECT
-	row_number() OVER (ORDER BY s.order_id),
-	s.order_id,
-	s.product_id
+    row_number() OVER (ORDER BY s.order_id),
+    s.order_id,
+    s.product_id
 FROM odp_source s;
-
-INSERT INTO "Order_Detail" ("OrderDetail_id", "Client_id", "Order_id", "Total_Price")
-SELECT
-	o."Order_id",
-	o."Client_id",
-	o."Order_id",
-	p."Price" AS total_price
-FROM "Order" o
-JOIN "Order_Detail_Product" odp ON odp."OrderDetail_id" = o."Order_id"
-JOIN "Product" p ON p."Product_id" = odp."Product_id";
 
 COMMIT;
