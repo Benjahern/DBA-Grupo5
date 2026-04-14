@@ -71,11 +71,64 @@ WHERE op.Order = 1;
 -- Consulta 4 {}
 -- Lista de regiones con más pedidos por mes, en los últimos 3 años.
 
--- Consulta 5 {}
+-- Consulta 5 {Benja S}
 -- Lista de clientes por compañía que más ha pagado mensualmente.
+WITH PagosMensuales AS (
+    SELECT 
+        DATE_TRUNC('month', o."Date") AS Mes,
+        com."Name" AS Compania,
+        c."Name" AS Cliente,
+        SUM(od."Total_Price") AS Gasto_Total
+    FROM "Order_Detail" od
+    JOIN "Order" o ON od."Order_id" = o."Order_id"
+    JOIN "Client" c ON od."Client_id" = c."Client_id"
+    JOIN "Order_Detail_Product" odp ON od."OrderDetail_id" = odp."OrderDetail_id"
+    JOIN "Product" p ON odp."Product_id" = p."Product_id"
+    JOIN "Company" com ON p."Company_id" = com."Company_id"
+    GROUP BY 1, 2, 3
+),
+RankingPagos AS (
+    SELECT 
+        Mes, Compania, Cliente, Gasto_Total,
+        RANK() OVER(PARTITION BY Mes, Compania ORDER BY Gasto_Total DESC) as posicion
+    FROM PagosMensuales
+)
+SELECT 
+    TO_CHAR(Mes, 'YYYY-MM') AS "Periodo",
+    Compania, 
+    Cliente, 
+    Gasto_Total
+FROM RankingPagos 
+WHERE posicion = 1
+ORDER BY Mes DESC, Compania;
 
--- Consulta 6 {}
--- Pedido diario con más productos del último mes. 
+-- Consulta 6 {Benja S}
+-- Pedido diario con más productos del último mes.
+WITH ConteoProductos AS (
+    SELECT 
+        o."Date"::date AS Fecha,
+        o."Order_id",
+        COUNT(odp."Product_id") AS Cantidad_Productos
+    FROM "Order" o
+    JOIN "Order_Detail_Product" odp ON o."Order_id" = odp."OrderDetail_id"
+    WHERE o."Date" >= CURRENT_DATE - INTERVAL '1 month'
+    GROUP BY 1, 2
+),
+RankingDiario AS (
+    SELECT 
+        Fecha,
+        "Order_id",
+        Cantidad_Productos,
+        RANK() OVER(PARTITION BY Fecha ORDER BY Cantidad_Productos DESC) as rank_dia
+    FROM ConteoProductos
+)
+SELECT 
+    Fecha,
+    "Order_id" AS "ID_Pedido",
+    Cantidad_Productos AS "Total_Productos"
+FROM RankingDiario
+WHERE rank_dia = 1
+ORDER BY Fecha DESC;
 
 -- Consulta 7 {}
 -- Lista de repartidores con la mayor cantidad de despachos mensuales,
