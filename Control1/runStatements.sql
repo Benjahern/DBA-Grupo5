@@ -64,12 +64,80 @@ JOIN "Company" c ON op."Company_id" = c."Company_id"
 WHERE op.Order = 1;
 
 
--- Consulta 3 {}
+-- Consulta 3 {Daniel}
 -- Medios de transporte más usados para repartir los pedidos
 -- por comuna de un cliente.
 
--- Consulta 4 {}
+-- Tabla temporal para hacer el conteo de pedidos y el medio de transporte mas usado
+WITH ConteoTransportes AS (
+    SELECT 
+        c."Name" AS Comuna, 
+        t."TransportName" AS MedioTransporte, 
+        COUNT(o."Order_id") AS TotalPedidos
+    FROM "Order" o
+    INNER JOIN "Client_Address" ca ON o."Client_id" = ca."Client_id"
+    INNER JOIN "Commune_Address" coa ON ca."Address_id" = coa."Address_id"
+    INNER JOIN "Commune" c ON coa."Commune_id" = c."Commune_id"
+    INNER JOIN "Dealer" d ON o."Dealer_id" = d."Dealer_id"
+    INNER JOIN "Type_Transport" t ON d."Transport_id" = t."Transport_id"
+    GROUP BY c."Name", t."TransportName"
+)
+
+-- Consultamos la tabla temporal y filtramos los máximos
+SELECT 
+    ct1.Comuna,
+    ct1.MedioTransporte,
+    ct1.TotalPedidos
+FROM ConteoTransportes ct1
+WHERE ct1.TotalPedidos = (
+    -- Buscamos el valor maximo de la comuna , para obtener el transporte mas usado (Usando MAX , para obtener el maximo)
+    SELECT MAX(ct2.TotalPedidos)
+    FROM ConteoTransportes ct2
+    WHERE ct1.Comuna = ct2.Comuna
+);
+
+
+-- Consulta 4 {Daniel}
 -- Lista de regiones con más pedidos por mes, en los últimos 3 años.
+
+-- Calculamos los pedidos totales por Año, Mes y Región
+WITH ConteoMensual AS (
+    SELECT 
+        EXTRACT(YEAR FROM o."Date") AS Anio,
+        EXTRACT(MONTH FROM o."Date") AS Mes,
+        r."Name" AS Region,
+        COUNT(o."Order_id") AS TotalPedidos
+    FROM "Order" o
+    INNER JOIN "Client_Address" ca ON o."Client_id" = ca."Client_id"
+    INNER JOIN "Commune_Address" coa ON ca."Address_id" = coa."Address_id"
+    INNER JOIN "Commune" c ON coa."Commune_id" = c."Commune_id"
+    INNER JOIN "Region" r ON c."Region_id" = r."Region_id"
+    
+    -- Aca filtramos el intervalo que queremos en este caso 3 años
+    WHERE o."Date" >= CURRENT_DATE - INTERVAL '3 years'
+    -- Agrupamos
+    GROUP BY 
+        EXTRACT(YEAR FROM o."Date"), 
+        EXTRACT(MONTH FROM o."Date"), 
+        r."Name"
+)
+
+-- Filtramos para dejar solo la región con mas pedidos ("más pedidos por mes")
+SELECT 
+    cm1.Anio,
+    cm1.Mes,
+    cm1.Region,
+    cm1.TotalPedidos
+FROM ConteoMensual cm1
+WHERE cm1.TotalPedidos = (
+    -- Subconsulta que busca el valor máximo para el mes y año que se está evaluando
+    SELECT MAX(cm2.TotalPedidos)
+    FROM ConteoMensual cm2
+    WHERE cm1.Anio = cm2.Anio 
+      AND cm1.Mes = cm2.Mes
+)
+ORDER BY cm1.Anio DESC, cm1.Mes DESC; --Finalmente ordenamos de mayor a menor año
+
 
 -- Consulta 5 {Benja S}
 -- Lista de clientes por compañía que más ha pagado mensualmente.
