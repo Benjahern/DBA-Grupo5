@@ -130,12 +130,88 @@ FROM RankingDiario
 WHERE rank_dia = 1
 ORDER BY Fecha DESC;
 
--- Consulta 7 {}
+-- Consulta 7 {Elías Zúñiga}
 -- Lista de repartidores con la mayor cantidad de despachos mensuales,
 -- en los últimos 3 años.
 
--- Consulta 8 {}
+WITH MonthlyCounts AS (
+    -- Paso 1: Calculamos el total de despachos por repartidor en cada mes (igual que antes)
+    SELECT
+        d."Name" AS Dealer,
+        TO_CHAR(o."Date", 'YYYY-MM') AS YearMonth,
+        COUNT(o."Order_id") AS TotalOrders
+    FROM "Dealer" d
+    JOIN "Order" o
+        ON d."Dealer_id" = o."Dealer_id"
+    WHERE o."Date" >= CURRENT_DATE - INTERVAL '3 years'
+    GROUP BY
+        d."Name",
+        TO_CHAR(o."Date", 'YYYY-MM')
+),
+RankedDealers AS (
+    -- Paso 2: Le asignamos un "ranking" a cada repartidor dentro de su mes respectivo
+    SELECT 
+        YearMonth,
+        Dealer,
+        TotalOrders,
+        -- ROW_NUMBER() Enumera los resultados de un conjunto de resultados.
+        -- Concretamente, devuelve el número secuencial de una fila dentro de una partición de
+        -- un conjunto de resultados, empezando por 1 para la primera fila de cada partición.
+        ROW_NUMBER() OVER(PARTITION BY YearMonth ORDER BY TotalOrders DESC) AS Ranking
+    FROM MonthlyCounts
+)
+-- Paso 3: Nos quedamos solo con los #1 de cada mes
+SELECT 
+    YearMonth,
+    Dealer AS BestDealer,
+    TotalOrders AS TotalDespachos
+FROM RankedDealers
+WHERE Ranking = 1
+-- Ordenamos cronológicamente para ver la evolución mes a mes
+ORDER BY 
+    YearMonth DESC;
+
+-- Consulta 8 {Elías Zúñiga}
 -- Lista de compañías que han recibido más dinero en el último año.
+
+WITH CountProdsMoney AS (
+    SELECT 
+    c."Name" AS Company,
+    o."Order_id",
+    SUM(od."Total_Price") AS TotalMoney
+	FROM "Company" c
+	-- Saltamos hasta el detalle de la orden (igual que antes)
+	JOIN "Product" p 
+	    ON c."Company_id" = p."Company_id"
+	JOIN "Order_Detail_Product" odp 
+	    ON p."Product_id" = odp."Product_id"
+	JOIN "Order_Detail" od 
+	    ON odp."OrderDetail_id" = od."OrderDetail_id"
+	-- ¡El salto nuevo! Llegamos a la tabla Order para obtener la fecha
+	JOIN "Order" o 
+	    ON od."Order_id" = o."Order_id"
+	-- Filtramos para que la fecha sea mayor o igual a "hoy menos 1 año"
+	WHERE o."Date" >= CURRENT_DATE - INTERVAL '1 year'
+	-- Agrupamos todo por el nombre de la compañía y el ID del pedido
+	GROUP BY 
+	    c."Name", 
+	    o."Order_id"
+	-- (Opcional) Lo ordenamos para que sea más fácil de leer
+	ORDER BY 
+	    Company, 
+	    o."Order_id"
+)
+
+-- Consulta final: Tomamos la tabla temporal y sumamos los totales de los pedidos
+SELECT 
+    Company,
+    SUM(TotalMoney) AS Total
+FROM CountProdsMoney
+GROUP BY 
+    Company
+-- Ordenamos de mayor a menor para ver qué empresa recaudó más
+ORDER BY 
+    Total DESC;
 
 -- Consulta 9 {}
 -- Lista de repartidores que han llevado pedidos en moto o bicicleta
