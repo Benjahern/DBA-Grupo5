@@ -281,9 +281,67 @@ GROUP BY
 ORDER BY 
     Total DESC;
 
--- Consulta 9 {}
+-- Consulta 9 {Felipe Hidalgo}
 -- Lista de repartidores que han llevado pedidos en moto o bicicleta
 -- a las comunas de Providencia y Santiago Centro.
 
--- Consulta 10 {}
+-- Utilizamos DISTINCT para repetir repartidores
+SELECT DISTINCT
+    d."Name" AS Repartidor,
+    tt."TransportName" AS Transporte,
+    com."Name" AS Comuna
+-- Hcemos match con order para llegar a dealer
+FROM "Order" o
+JOIN "Dealer" d ON o."Dealer_id" = d."Dealer_id"
+-- luego a tipo de transporte y por otro lado con client_address para llegar a comuna
+JOIN "Type_Transport" tt ON d."Transport_id" = tt."Transport_id"
+-- Para saber a la comuna del pedido, tenemos que seguir una cadena de relaciones: pedido → dirección del cliente → comuna de esa dirección
+-- Ya que no hay una relación directa entre pedido y comuna
+JOIN "Client_Address" ca ON o."Client_id" = ca."Client_id"
+JOIN "Commune_Address" coa ON ca."Address_id" = coa."Address_id"
+JOIN "Commune" com ON coa."Commune_id" = com."Commune_id"
+-- Finalmente filtramos que el repartidor haya utilizado moto o bicicleta y que esta haya sido para las comunas de Providencia o Santiago
+-- El control pide santiago centro, pero en la base de datos solo hay "Santiago", así que asumí que se refería a esa comuna
+WHERE tt."TransportName" IN ('MOTO', 'BICICLETA')
+  AND com."Name" IN ('Providencia', 'Santiago')
+ORDER BY com."Name", d."Name";
+
+-- Consulta 10 {Felipe Hidalgo}
 -- Lista de clientes que han gastado más diariamente el mes pasado.
+
+-- Calcula cuánto gastó cada cliente en cada día del mes pasado
+-- El ::date convierte el timestamp a solo fecha (sin hora), asi dejamos los pedidos del mismo día juntos
+-- El SUM suma todos los gastos de ese cliente en ese día. El WHERE con DATE_TRUNC es la forma correcta de filtrar el mes anterior completo
+WITH GastoDiario AS (
+    SELECT
+        o."Date"::date AS Fecha,
+        c."Name" AS Cliente,
+        SUM(od."Total_Price") AS Gasto_Total
+    FROM "Order" o
+    JOIN "Order_Detail" od ON o."Order_id" = od."Order_id"
+    JOIN "Client" c ON od."Client_id" = c."Client_id"
+-- Trunca ambas fechas al inicio de su mes y las compara, capturando exactamente del 1 al último día del mes pasado.
+    WHERE DATE_TRUNC('month', o."Date") = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+    GROUP BY o."Date"::date, c."Name"
+),
+-- Tomamos los resultados del paso anterior y les asignamos un ranking por día
+-- PARTITION BY Fecha reinicia el conteo para cada día y el ORDER BY Gasto_Total DESC ordena de mayor a menor gasto dentro de ese día
+-- El cliente que más gastó ese día queda con posicion = 1
+-- Se usa RANK() y no ROW_NUMBER() para que si dos clientes gastaron exactamente lo mismo en un día, ambos queden con posición 1
+RankingDiario AS (
+    SELECT
+        Fecha,
+        Cliente,
+        Gasto_Total,
+        RANK() OVER (PARTITION BY Fecha ORDER BY Gasto_Total DESC) AS posicion
+    FROM GastoDiario
+)
+-- del ranking solo nos quedamos con los que tienen posicion = 1, quiere decir que nos quedamos con los que mas gastaron en cada día
+-- El ORDER BY Fecha DESC muestra los días más recientes primero.
+SELECT
+    Fecha,
+    Cliente,
+    Gasto_Total
+FROM RankingDiario
+WHERE posicion = 1
+ORDER BY Fecha DESC;
