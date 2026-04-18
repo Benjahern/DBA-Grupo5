@@ -203,7 +203,7 @@ ORDER BY Fecha DESC;
 -- en los últimos 3 años.
 
 WITH MonthlyCounts AS (
-    -- Paso 1: Calculamos el total de despachos por repartidor en cada mes (igual que antes)
+    -- Calculamos el total de despachos por repartidor en cada mes (igual que antes)
     SELECT
         d."Name" AS Dealer,
         TO_CHAR(o."Date", 'YYYY-MM') AS YearMonth,
@@ -217,7 +217,7 @@ WITH MonthlyCounts AS (
         TO_CHAR(o."Date", 'YYYY-MM')
 ),
 RankedDealers AS (
-    -- Paso 2: Le asignamos un "ranking" a cada repartidor dentro de su mes respectivo
+    -- Le asignamos un "ranking" a cada repartidor dentro de su mes respectivo
     SELECT 
         YearMonth,
         Dealer,
@@ -228,7 +228,7 @@ RankedDealers AS (
         ROW_NUMBER() OVER(PARTITION BY YearMonth ORDER BY TotalOrders DESC) AS Ranking
     FROM MonthlyCounts
 )
--- Paso 3: Nos quedamos solo con los #1 de cada mes
+-- Nos quedamos solo con los #1 de cada mes
 SELECT 
     YearMonth,
     Dealer AS BestDealer,
@@ -255,7 +255,7 @@ WITH CountProdsMoney AS (
 	    ON p."Product_id" = odp."Product_id"
 	JOIN "Order_Detail" od 
 	    ON odp."OrderDetail_id" = od."OrderDetail_id"
-	-- ¡El salto nuevo! Llegamos a la tabla Order para obtener la fecha
+	-- Llegamos a la tabla Order para obtener la fecha
 	JOIN "Order" o 
 	    ON od."Order_id" = o."Order_id"
 	-- Filtramos para que la fecha sea mayor o igual a "hoy menos 1 año"
@@ -264,13 +264,13 @@ WITH CountProdsMoney AS (
 	GROUP BY 
 	    c."Name", 
 	    o."Order_id"
-	-- (Opcional) Lo ordenamos para que sea más fácil de leer
+	-- (Opcionalmente) Lo ordenamos para que sea más fácil de leer
 	ORDER BY 
 	    Company, 
 	    o."Order_id"
 )
 
--- Consulta final: Tomamos la tabla temporal y sumamos los totales de los pedidos
+-- Finalmente tomamos la tabla temporal y sumamos los totales de los pedidos
 SELECT 
     Company,
     SUM(TotalMoney) AS Total
@@ -290,12 +290,12 @@ SELECT DISTINCT
     d."Name" AS Repartidor,
     tt."TransportName" AS Transporte,
     com."Name" AS Comuna
--- Hcemos match con order para llegar a dealer
+-- Hacemos match con order para llegar a dealer
 FROM "Order" o
 JOIN "Dealer" d ON o."Dealer_id" = d."Dealer_id"
 -- luego a tipo de transporte y por otro lado con client_address para llegar a comuna
 JOIN "Type_Transport" tt ON d."Transport_id" = tt."Transport_id"
--- Para saber a la comuna del pedido, tenemos que seguir una cadena de relaciones: pedido → dirección del cliente → comuna de esa dirección
+-- Para saber a la comuna del pedido, tenemos que seguir una cadena de relaciones: pedido -> dirección del cliente -> comuna de esa dirección
 -- Ya que no hay una relación directa entre pedido y comuna
 JOIN "Client_Address" ca ON o."Client_id" = ca."Client_id"
 JOIN "Commune_Address" coa ON ca."Address_id" = coa."Address_id"
