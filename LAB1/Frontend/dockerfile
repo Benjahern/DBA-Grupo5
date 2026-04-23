@@ -1,0 +1,21 @@
+# ── Frontend — Vue 3 + Vite (Hot Reload) ──────────────────────────────────────
+# El servidor de desarrollo de Vite detecta cambios en el volumen montado y
+# recarga el navegador automáticamente sin necesidad de rebuild.
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Copiamos solo los manifiestos primero para aprovechar la caché de capas
+COPY package.json package-lock.json ./
+
+RUN npm ci
+
+# El código fuente se monta como volumen en docker-compose (no se copia aquí)
+# para que los cambios locales sean visibles de inmediato.
+
+EXPOSE 5173
+
+# --host  → escucha en 0.0.0.0 (necesario dentro del contenedor)
+# --poll  → usa polling para detectar cambios en sistemas de archivos montados
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

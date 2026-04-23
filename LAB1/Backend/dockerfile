@@ -1,0 +1,25 @@
+# ── Backend — Spring Boot 3 + Gradle (Hot Reload) ─────────────────────────────
+# Usa "gradle bootRun" con la opción --continuous de Gradle (modo watch) junto
+# con spring-boot-devtools para reiniciar la app automáticamente al detectar
+# cambios en el volumen montado.
+
+FROM eclipse-temurin:21-jdk-alpine
+
+WORKDIR /app
+
+# Copiamos el wrapper y los archivos de configuración de Gradle
+COPY gradlew ./
+COPY gradle ./gradle
+COPY build.gradle settings.gradle ./
+
+# Pre-descarga las dependencias (aprovecha la caché de Docker)
+RUN chmod +x gradlew && ./gradlew dependencies --no-daemon -q
+
+# El código fuente se monta como volumen en docker-compose.
+# No se copia aquí para evitar el rebuild en cada cambio.
+
+EXPOSE 8080
+
+# --continuous  → Gradle re-ejecuta la tarea cuando detecta cambios en el código
+# --no-daemon   → evita problemas de señales dentro del contenedor
+CMD ["./gradlew", "bootRun", "--no-daemon", "--continuous"]
