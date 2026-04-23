@@ -1,8 +1,4 @@
--- ============================================================
---  Host Usach Cloud — Schema
--- ============================================================
 
--- Tablas sin dependencias primero
 
 CREATE TABLE "Ip" (
   "Ip_id"      SERIAL PRIMARY KEY,
@@ -38,18 +34,16 @@ CREATE TABLE "Role" (
   "Role"    VARCHAR(30) NOT NULL
 );
 
--- Tabla de usuarios (depende de nada)
 
 CREATE TABLE "Users" (
   "User_id"       SERIAL PRIMARY KEY,
   "Email"         VARCHAR(80) NOT NULL UNIQUE,
-  "Password_hash" TEXT        NOT NULL,   -- hash bcrypt / argon2
+  "Password_hash" TEXT        NOT NULL,   
   "Name"          VARCHAR(80) NOT NULL,
   "Max_Instance"  INTEGER     NOT NULL DEFAULT 5,
   "Lock"          BOOLEAN     NOT NULL DEFAULT FALSE
 );
 
--- Relación usuario ↔ rol (depende de Users y Role)
 
 CREATE TABLE "User_role" (
   "User_role_id" SERIAL PRIMARY KEY,
@@ -65,7 +59,6 @@ CREATE TABLE "User_role" (
       ON DELETE RESTRICT
 );
 
--- Instancias (depende de Ram, CPU, Storage, Users, Region, Ip)
 
 CREATE TABLE "Instance" (
   "Instance_id"  SERIAL PRIMARY KEY,
@@ -76,8 +69,8 @@ CREATE TABLE "Instance" (
   "State"        VARCHAR(80)    NOT NULL DEFAULT 'stopped',
   "User_id"      INTEGER        NOT NULL,
   "Region_id"    INTEGER        NOT NULL,
-  "container_id" VARCHAR(80),            -- ID de string del motor de contenedores
-  "Started_at"   TIMESTAMP,              -- fecha/hora de inicio
+  "container_id" VARCHAR(80),            
+  "Started_at"   TIMESTAMP,              
   "Active_hours" DECIMAL(10,2)  NOT NULL DEFAULT 0,
   "Ip_id"        INTEGER,
   CONSTRAINT "FK_Instance_Ram_id"
@@ -94,7 +87,6 @@ CREATE TABLE "Instance" (
     FOREIGN KEY ("Ip_id")       REFERENCES "Ip"("Ip_id")
 );
 
--- Consumo de recursos por instancia (depende de Instance)
 
 CREATE TABLE "Consumption" (
   "consumption_id" SERIAL PRIMARY KEY,
@@ -108,7 +100,6 @@ CREATE TABLE "Consumption" (
       ON DELETE CASCADE
 );
 
--- Tickets de cobro (depende de Instance)
 
 CREATE TABLE "Ticket" (
   "Ticket_id"   SERIAL PRIMARY KEY,

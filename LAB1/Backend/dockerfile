@@ -1,4 +1,3 @@
-# ── Backend — Spring Boot 3 + Gradle (Hot Reload) ─────────────────────────────
 # Usa "gradle bootRun" con la opción --continuous de Gradle (modo watch) junto
 # con spring-boot-devtools para reiniciar la app automáticamente al detectar
 # cambios en el volumen montado.
