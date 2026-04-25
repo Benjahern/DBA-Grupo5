@@ -1,0 +1,17 @@
+# ── Entorno ──────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Docker ───────────────────────────────────────────────────
+# Volúmenes y datos generados por docker compose
+docker-volumes/
+
+# ── IDEs ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+
+# ── Sistema operativo ────────────────────────────────────────
+.DS_Store
+Thumbs.db
