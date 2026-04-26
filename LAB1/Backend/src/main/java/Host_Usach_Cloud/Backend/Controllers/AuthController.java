@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -29,8 +30,11 @@ public class AuthController {
     @Value("${keycloak.target-realm:host-usach}")
     private String realm;
 
-    @Value("${keycloak.public-client-id:frontend-app}")
-    private String clientId;
+        @Value("${keycloak.backend-client-id:backend-app}")
+        private String backendClientId;
+
+        @Value("${keycloak.backend-client-secret:CHANGE_ME_BACKEND_CLIENT_SECRET}")
+        private String backendClientSecret;
 
     @PostMapping("/register")
         public Mono<ResponseEntity<Object>> register(@RequestBody RegisterRequest request) {
@@ -44,14 +48,20 @@ public class AuthController {
         public Mono<ResponseEntity<Object>> login(@RequestBody LoginRequest request) {
         String tokenUrl = keycloakServerUrl + "/realms/" + realm + "/protocol/openid-connect/token";
 
+                var formData = BodyInserters.fromFormData("client_id", backendClientId)
+                        .with("grant_type", "password")
+                        .with("username", request.getEmail())
+                        .with("password", request.getPassword());
+
+                if (StringUtils.hasText(backendClientSecret)) {
+                    formData = formData.with("client_secret", backendClientSecret);
+                }
+
         return webClientBuilder.build()
                 .post()
                 .uri(tokenUrl)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData("client_id", clientId)
-                        .with("grant_type", "password")
-                        .with("username", request.getEmail())
-                        .with("password", request.getPassword()))
+                        .body(formData)
                 .retrieve()
                 .bodyToMono(Map.class)
                 .map(response -> ResponseEntity.ok((Object) response))

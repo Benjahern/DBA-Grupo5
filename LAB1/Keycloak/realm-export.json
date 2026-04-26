@@ -23,7 +23,7 @@
   },
   "clients": [
     {
-      "clientId": "frontend-app",
+      "clientId": "usach-cloud-frontend",
       "name": "Frontend Vue App",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
@@ -41,6 +41,18 @@
       "attributes": {
         "post.logout.redirect.uris": "*"
       }
+    },
+    {
+      "clientId": "usach-cloud-backend",
+      "name": "Backend API Client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "CHANGE_ME_BACKEND_CLIENT_SECRET",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false
     }
   ]
 }
