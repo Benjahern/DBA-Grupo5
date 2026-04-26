@@ -109,7 +109,7 @@ const submit = async () => {
   
   try {
     const resp = await api.post('/api/auth/login', { 
-      username: identifier.value, 
+      email: identifier.value, 
       password: password.value 
     });
     

@@ -4,7 +4,7 @@ const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL;
 
 const keycloak = new Keycloak({
   url: keycloakUrl,
-  realm: 'Host-Usach-Cloud',
+  realm: 'host-usach',
   clientId: 'usach-cloud-frontend',
 });
 

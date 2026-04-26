@@ -28,10 +28,11 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "*"
+        "http://localhost:5173/*"
+        
       ],
       "webOrigins": [
-        "*"
+        "http://localhost:5173"
       ],
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -47,7 +48,11 @@
       "name": "Backend API Client",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
-      "secret": "CHANGE_ME_BACKEND_CLIENT_SECRET",
+      "secret": "Yq1p9hXsUyQwTRyVUU9LIWf7GRsAiXyt",
+      "redirectUris":
+      [
+        "http://localhost:8080/*"
+      ],
       "publicClient": false,
       "standardFlowEnabled": false,
       "implicitFlowEnabled": false,
