@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import TransitionAlert from './Components/Alerts/TransitionAlert.vue';
+import TransitionAlert from './components/Alerts/TransitionAlert.vue';
 </script>
 
 <template>
