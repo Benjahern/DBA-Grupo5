@@ -96,7 +96,6 @@ const getLoginError = (err) => {
     severity: 'warning',
     autoHideMs: 4000
   });
-  return 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo más tarde.';
 };
 
 const goToRegister = () => {
