@@ -15,8 +15,6 @@ public class Users {
 
     private String Email;
 
-    private String Password_hash;
-
     private String Name;
 
     private int Max_instances;

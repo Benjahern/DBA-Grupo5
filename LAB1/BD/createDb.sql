@@ -1,3 +1,4 @@
+CREATE SCHEMA IF NOT EXISTS keycloak;
 
 CREATE TABLE "CPU" (
   "Cpu_id"   BIGSERIAL PRIMARY KEY,
@@ -31,7 +32,6 @@ CREATE TABLE "Role" (
 CREATE TABLE "Users" (
   "User_id"       BIGSERIAL PRIMARY KEY,
   "Email"         VARCHAR(80) NOT NULL UNIQUE,
-  "Password_hash" TEXT        NOT NULL,   
   "Name"          VARCHAR(80) NOT NULL,
   "Max_instances" INTEGER     NOT NULL DEFAULT 5,
   "Lock"          BOOLEAN     NOT NULL DEFAULT FALSE
@@ -77,7 +77,7 @@ CREATE TABLE "Instance" (
   CONSTRAINT "FK_Instance_User_id"
     FOREIGN KEY ("User_id")     REFERENCES "Users"("User_id"),
   CONSTRAINT "FK_Instance_Region_id"
-    FOREIGN KEY ("Region_id")   REFERENCES "Region"("Region_id"),
+    FOREIGN KEY ("Region_id")   REFERENCES "Region"("Region_id")
 );
 
 
@@ -104,3 +104,7 @@ CREATE TABLE "Ticket" (
       REFERENCES "Instance"("Instance_id")
       ON DELETE CASCADE
 );
+
+
+INSERT INTO "Role" ("Role") VALUES ('user');
+INSERT INTO "Role" ("Role") VALUES ('admin');
