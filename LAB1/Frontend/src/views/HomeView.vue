@@ -26,10 +26,10 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 // Importamos el hook que creó Mharko. 
 // Ajusta la ruta dependiendo de dónde pusiste la carpeta Components
-import { useAlert } from '../Components/Alerts/useAlert';
+import { useAlert } from '../components/Alerts/useAlert';
 
 // Extraemos la función para mostrar la alerta
 const { show } = useAlert()
