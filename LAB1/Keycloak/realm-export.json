@@ -1,0 +1,63 @@
+{
+  "id": "host-usach",
+  "realm": "host-usach",
+  "displayName": "Host Usach Cloud",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Usuario normal del sistema"
+      },
+      {
+        "name": "admin",
+        "description": "Administrador del sistema"
+      }
+    ],
+    "client": {}
+  },
+  "clients": [
+    {
+      "clientId": "usach-cloud-frontend",
+      "name": "Frontend Vue App",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "http://localhost:5173/*"
+        
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "attributes": {
+        "post.logout.redirect.uris": "*"
+      }
+    },
+    {
+      "clientId": "usach-cloud-backend",
+      "name": "Backend API Client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "Yq1p9hXsUyQwTRyVUU9LIWf7GRsAiXyt",
+      "redirectUris":
+      [
+        "http://localhost:8080/*"
+      ],
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false
+    }
+  ]
+}

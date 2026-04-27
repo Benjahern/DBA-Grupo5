@@ -1,4 +1,4 @@
-
+CREATE SCHEMA IF NOT EXISTS keycloak;
 
 CREATE TABLE "Ip" (
   "Ip_id"      SERIAL PRIMARY KEY,
@@ -38,7 +38,6 @@ CREATE TABLE "Role" (
 CREATE TABLE "Users" (
   "User_id"       SERIAL PRIMARY KEY,
   "Email"         VARCHAR(80) NOT NULL UNIQUE,
-  "Password_hash" TEXT        NOT NULL,   
   "Name"          VARCHAR(80) NOT NULL,
   "Max_Instance"  INTEGER     NOT NULL DEFAULT 5,
   "Lock"          BOOLEAN     NOT NULL DEFAULT FALSE
