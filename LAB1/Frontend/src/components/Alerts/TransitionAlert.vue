@@ -34,7 +34,7 @@ const { alerts, hide } = useAlert();
   display: flex;
   align-items: center;
   gap: 12px;
-  color: white;
+  color: black;
   min-width: 300px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   font-family: 'Roboto';
@@ -43,7 +43,8 @@ const { alerts, hide } = useAlert();
 .alert-success { background-color: #42bb48; }
 .alert-error { background-color: #f51717; }
 .alert-info { background-color: #1facf7; }
-.alert-warning { background-color: #ffbb00; }
+.alert-warning { background-color: #fbff00; }
+
 
 .close-btn {
   background: none;

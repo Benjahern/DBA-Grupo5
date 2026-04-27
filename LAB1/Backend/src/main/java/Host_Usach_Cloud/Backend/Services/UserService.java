@@ -17,6 +17,7 @@ import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -31,6 +32,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final Keycloak keycloak;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${keycloak.target-realm:host-usach}")
     private String targetRealm;
@@ -53,6 +55,7 @@ public class UserService {
         return Mono.fromCallable(() -> {
             RealmResource realmResource = keycloak.realm(targetRealm);
             UsersResource usersResource = realmResource.users();
+            String keycloakUserId = null;
 
             UserRepresentation userRepresentation = new UserRepresentation();
             userRepresentation.setUsername(email); // Usamos el email como username
@@ -63,34 +66,45 @@ public class UserService {
             userRepresentation.setEmailVerified(true);
             userRepresentation.setRequiredActions(Collections.emptyList());
 
-            Response response = usersResource.create(userRepresentation);
-            if (response.getStatus() != 201) {
-                throw new RuntimeException("Error al crear usuario en Keycloak. Status: " + response.getStatus());
+            try (Response response = usersResource.create(userRepresentation)) {
+                if (response.getStatus() != 201) {
+                    throw new RuntimeException("Error al crear usuario en Keycloak. Status: " + response.getStatus());
+                }
+
+                if (response.getLocation() == null || response.getLocation().getPath() == null) {
+                    throw new RuntimeException("Keycloak no devolvio la ubicacion del usuario creado");
+                }
+
+                // Obtener el ID del usuario recién creado en Keycloak
+                keycloakUserId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
             }
 
-            // Obtener el ID del usuario recién creado en Keycloak
-            String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-
-            CredentialRepresentation passwordCred = new CredentialRepresentation();
-            passwordCred.setTemporary(false);
-            passwordCred.setType(CredentialRepresentation.PASSWORD);
-            passwordCred.setValue(password);
-            
-            usersResource.get(userId).resetPassword(passwordCred);
-
-            // Evita bloqueos de grant_type=password por acciones requeridas pendientes
-            UserRepresentation createdUser = usersResource.get(userId).toRepresentation();
-            createdUser.setRequiredActions(Collections.emptyList());
-            usersResource.get(userId).update(createdUser);
-
-            //Asignar roles
             try {
+                CredentialRepresentation passwordCred = new CredentialRepresentation();
+                passwordCred.setTemporary(false);
+                passwordCred.setType(CredentialRepresentation.PASSWORD);
+                passwordCred.setValue(password);
+                usersResource.get(keycloakUserId).resetPassword(passwordCred);
+
+                // Evita bloqueos de grant_type=password por acciones requeridas pendientes
+                UserRepresentation createdUser = usersResource.get(keycloakUserId).toRepresentation();
+                createdUser.setRequiredActions(Collections.emptyList());
+                usersResource.get(keycloakUserId).update(createdUser);
+
                 RoleRepresentation realmRole = realmResource.roles().get(roleName).toRepresentation();
-                usersResource.get(userId).roles().realmLevel().add(Collections.singletonList(realmRole));
+                usersResource.get(keycloakUserId).roles().realmLevel().add(Collections.singletonList(realmRole));
+
+                return persistUserAndRoleInDatabase(email, name, roleName);
             } catch (Exception e) {
-                log.warn("No se pudo asignar el rol {}. Es posible que el rol no exista en Keycloak.", roleName);
+                rollbackKeycloakUser(usersResource, keycloakUserId, email, e);
+                throw new RuntimeException("No se pudo completar el registro atomico: " + e.getMessage(), e);
             }
 
+        }).subscribeOn(Schedulers.boundedElastic()); // Ejecutar en hilo separado porque son operaciones bloqueantes
+    }
+
+    private Users persistUserAndRoleInDatabase(String email, String name, String roleName) {
+        return transactionTemplate.execute(status -> {
             Users newUser = Users.builder()
                     .Email(email)
                     .Name(name)
@@ -98,27 +112,33 @@ public class UserService {
                     .Lock(false)
                     .build();
 
-            // Guardar usuario en BD
             Users savedUser = userRepository.save(newUser);
 
-            // Sincronizar rol en BD: buscar rol por nombre y crear relación user-role
-            try {
-                Role role = roleRepository.findByName(roleName)
-                        .orElseThrow(() -> new RuntimeException("Rol '" + roleName + "' no encontrado en BD"));
-                
-                User_role userRole = User_role.builder()
-                        .User_id(savedUser.getUser_id())
-                        .Role_id(role.getRole_id())
-                        .build();
-                
-                userRoleRepository.save(userRole);
-                log.info("Rol {} sincronizado en BD para usuario {}", roleName, email);
-            } catch (Exception e) {
-                log.error("Error al sincronizar rol {} en BD para usuario {}: {}", roleName, email, e.getMessage());
-            }
+            Role role = roleRepository.findByName(roleName)
+                    .orElseThrow(() -> new RuntimeException("Rol '" + roleName + "' no encontrado en BD"));
 
+            User_role userRole = User_role.builder()
+                    .User_id(savedUser.getUser_id())
+                    .Role_id(role.getRole_id())
+                    .build();
+
+            userRoleRepository.save(userRole);
+            log.info("Rol {} sincronizado en BD para usuario {}", roleName, email);
             return savedUser;
+        });
+    }
 
-        }).subscribeOn(Schedulers.boundedElastic()); // Ejecutar en hilo separado porque son operaciones bloqueantes
+    private void rollbackKeycloakUser(UsersResource usersResource, String keycloakUserId, String email, Exception cause) {
+        if (keycloakUserId == null || keycloakUserId.isBlank()) {
+            log.error("Registro atomico fallido para {} y no se pudo compensar en Keycloak: ID nulo", email, cause);
+            return;
+        }
+
+        try {
+            usersResource.get(keycloakUserId).remove();
+            log.warn("Registro atomico fallido para {}. Usuario compensado en Keycloak", email);
+        } catch (Exception deleteError) {
+            log.error("Registro atomico fallido para {} y no se pudo eliminar en Keycloak (id={}): {}", email, keycloakUserId, deleteError.getMessage(), deleteError);
+        }
     }
 }

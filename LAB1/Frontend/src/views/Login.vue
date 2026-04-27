@@ -113,11 +113,11 @@ const submit = async () => {
     });
     
     const data = resp.data;
-    const email = data?.user?.name || data?.name || identifier.value;
+    const userName = data?.user?.name || data?.name || identifier.value;
     
     storeAuthData(data);
     
-    show({ message: `¡Bienvenido ${email}! Sesión iniciada correctamente`, severity: 'success', autoHideMs: 3500 });
+    show({ message: `¡Bienvenido ${userName}! Sesión iniciada correctamente`, severity: 'success', autoHideMs: 3500 });
     
     setTimeout(() => { router.push('/'); }, 500);
     

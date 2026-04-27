@@ -9,12 +9,22 @@
         <form @submit.prevent="submit" class="form-grid">
           
           <div class="input-group">
+            <label for="register-name">Nombre</label>
+            <div class="input-with-icon">
+              <span class="icon" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>
+              </span>
+              <input id="register-name" v-model="name" placeholder="tu nombre" required />
+            </div>
+          </div>
+
+          <div class="input-group">
             <label for="register-identifier">Email</label>
             <div class="input-with-icon">
               <span class="icon" aria-hidden>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l9 6 9-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </span>
-              <input id="register-identifier" v-model="identifier" placeholder="tu email" required />
+              <input id="register-identifier" type="email" v-model="identifier" placeholder="tu email" required />
             </div>
           </div>
 
@@ -68,6 +78,7 @@ const password = ref('');
 const passwordConfirm = ref('');
 const loading = ref(false);
 const msg = ref(null);
+const name = ref('');
 
 // Lógica de guardado de token
 const storeAuthData = (data) => {
@@ -86,6 +97,8 @@ const storeAuthData = (data) => {
 };
 
 const getregisterError = (err) => {
+  const backendError = err.response?.data?.error || err.response?.data?.message || null;
+
   if (err.response?.status === 409) {
     show({
       message: 'El usuario o correo ya se encuentra registrado. Por favor, intenta iniciar sesión.',
@@ -95,6 +108,19 @@ const getregisterError = (err) => {
     return 'El usuario o correo ya se encuentra registrado.';
   } 
   if (err.response?.status === 400) {
+    if (backendError) {
+      const isDuplicate = /status:\s*409|already exists|ya existe|duplicate/i.test(String(backendError));
+      const message = isDuplicate
+        ? 'El correo ya esta registrado. Intenta con otro correo o inicia sesion.'
+        : `Error de registro: ${backendError}`;
+      show({
+        message,
+        severity: isDuplicate ? 'warning' : 'error',
+        autoHideMs: 5000
+      });
+      return message;
+    }
+
     show({
       message: 'Los datos ingresados son inválidos. Verifica tu información.',
       severity: 'error',
@@ -117,26 +143,35 @@ const goToLogin = () => {
 const submit = async () => {
   msg.value = null;
 
+  const payload = {
+    email: identifier.value.trim(),
+    name: name.value.trim(),
+    password: password.value,
+  };
+
   if (password.value !== passwordConfirm.value) {
     msg.value = 'Las contraseñas no coinciden.';
     show({ message: 'Las contraseñas no coinciden.', severity: 'warning', autoHideMs: 4000 });
     return;
   }
 
+  if (!payload.email || !payload.name || !payload.password) {
+    msg.value = 'Completa nombre, email y contraseña.';
+    show({ message: 'Completa nombre, email y contraseña.', severity: 'warning', autoHideMs: 4000 });
+    return;
+  }
+
   loading.value = true;
   
   try {
-    const resp = await api.post('/api/auth/register', { 
-      email: identifier.value, 
-      password: password.value 
-    });
+    const resp = await api.post('/api/auth/register', payload);
     
     const data = resp.data;
-    const email = data?.user?.name || data?.name || identifier.value;
+    const name = data?.user?.name || data?.name || identifier.value;
     
     storeAuthData(data);
     
-    show({ message: `¡Bienvenido ${email}! Cuenta creada exitosamente`, severity: 'success', autoHideMs: 3500 });
+    show({ message: `¡Bienvenido ${name}! Cuenta creada exitosamente`, severity: 'success', autoHideMs: 3500 });
     
     setTimeout(() => { router.push('/'); }, 500);
     
