@@ -5,10 +5,10 @@ import Home from '../views/HomeView.vue';
 import NotFound from '../views/NotFound.vue';
 
 const routes = [
-  { path: '/', component: Home , meta : { title: 'Inicio' }},             
-  { path: '/login', component: Login, meta: { title: 'Iniciar Sesión' } },       
-  { path: '/register', component: Register, meta: { title: 'Registrarse' } },
-  { path: '/:pathMatch(.*)*', component: NotFound , meta: { title: 'Página No Encontrada' }}
+  { path: '/', name: 'home', component: Home , meta : { title: 'Inicio' }},             
+  { path: '/login', name: 'login', component: Login, meta: { title: 'Iniciar Sesión' } },       
+  { path: '/register', name: 'register', component: Register, meta: { title: 'Registrarse' } },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound , meta: { title: 'Página No Encontrada' }}
 ];
 
 
