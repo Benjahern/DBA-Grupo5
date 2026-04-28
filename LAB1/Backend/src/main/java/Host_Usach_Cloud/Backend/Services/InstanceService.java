@@ -13,6 +13,7 @@ import com.github.dockerjava.api.DockerClient;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -103,11 +104,79 @@ public class InstanceService {
 
     }
 
+    public Instance getInstanceById(Long instanceId) {
+        return instanceRepository.findById(instanceId)
+                .orElseThrow(() -> new IllegalArgumentException("El Id de la instancia no existe"));
+    }
 
+    public List<Instance> getAllInstances() {
+        return instanceRepository.findAll();
+    }
+
+    public List<Instance> getInstancesByUserId(Long userId) {
+        return instanceRepository.findAllByUserId(userId);
+    }
+
+    public List<Instance> getInstancesByState(String state) {
+        return instanceRepository.findAllByState(state);
+    }
+
+    public Instance updateInstance(Instance instance) {
+        boolean updated = instanceRepository.update(instance);
+        if (!updated) {
+            throw new IllegalArgumentException("El Id de la instancia no existe");
+        }
+        return instance;
+    }
+
+    public void deleteInstance(Long instanceId) {
+        boolean deleted = instanceRepository.deleteById(instanceId);
+        if (!deleted) {
+            throw new IllegalArgumentException("El Id de la instancia no existe");
+        }
+    }
+
+
+    
     // Solicitado por enunciado
-    public InstanceService updateStateByid(Long InstanceId, String State){
-        InstanceService
+    public Instance updateStateByid(Long InstanceId, String State) {
 
-        return instanceUpdates;
+        Instance instance = instanceRepository.findById(InstanceId)
+            .orElseThrow(() -> new IllegalArgumentException("El Id de la instancia no existe"));
+
+        if (State.equals("Stopped") && instance.getState().equals("Running")) {
+            // Parar el contenedor en Docker
+            dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
+
+            // Actualizar el estado. 
+            // El trigger sumará el tiempo a Active_hours y pondrá Started_at = null
+            instance.setState("Stopped");
+
+        } else if (State.equals("Running") && instance.getState().equals("Stopped")) {
+            // Iniciar el contenedor en Docker
+            dockerClient.startContainerCmd(instance.getContainer_id()).exec();
+
+            // Actualizar el estado. 
+            // El trigger pondrá automáticamente Started_at = NOW()
+            instance.setState("Running");
+
+        } else if (State.equals("Terminated")) {
+            // Terminar el contenedor en Docker y eliminarlo
+            dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
+            dockerClient.removeContainerCmd(instance.getContainer_id()).withForce(true).exec();
+
+            // Actualizar el estado y marcar como terminado. 
+            // El trigger liberará la IP, sumará el tiempo final a Active_hours y limpiará Started_at
+            instance.setState("Terminated");
+            instance.setTerminated(true);
+
+        } else {
+            throw new IllegalArgumentException("Estado no válido o transición no permitida");
+        }
+
+  
+        instanceRepository.update(instance);
+
+        return instance;
     }
 }

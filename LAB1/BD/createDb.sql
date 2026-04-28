@@ -66,7 +66,7 @@ CREATE TABLE "Instance" (
   "Container_id" VARCHAR(80),            
   "Started_at"   TIMESTAMP WITHOUT TIME ZONE,
   "Active_hours" INTERVAL       NOT NULL DEFAULT INTERVAL '0 seconds',
-  "Ip_address"   VARCHAR(80)    NOT NULL UNIQUE,
+  "Ip_address"   VARCHAR(80),
   "Color"        VARCHAR(80)    NOT NULL,
   CONSTRAINT "FK_Instance_Ram_id"
     FOREIGN KEY ("Ram_id")      REFERENCES "Ram"("Ram_id"),
@@ -87,6 +87,7 @@ CREATE TABLE "Consumption" (
   "Cpu_stats"      DOUBLE PRECISION NOT NULL DEFAULT 0,
   "Ram_stats"      DOUBLE PRECISION NOT NULL DEFAULT 0,
   "Storage_stats"  DOUBLE PRECISION NOT NULL DEFAULT 0,
+  "Created_at"     TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
   CONSTRAINT "FK_Consumption_Instance_id"
     FOREIGN KEY ("Instance_id")
       REFERENCES "Instance"("Instance_id")
