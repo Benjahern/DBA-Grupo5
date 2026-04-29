@@ -7,6 +7,19 @@
       <button @click="triggerWelcomeAlert" class="action-btn">
         Probar Alerta Global
       </button>
+
+      <!-- Importamos y renderizamos nuestro nuevo componente RunButton aquí -->
+      <div style="margin-top: 2rem; display: flex; justify-content: center;">
+        <RunButton />
+      </div>
+      
+      <div style="margin-top: 2rem; display: flex; justify-content: center;">
+        <PauseButton />
+      </div>
+
+      <div style="margin-top: 2rem; display: flex; justify-content: center;">
+        <DeleteButton />
+      </div>
     </header>
 
     <section class="features-grid">
@@ -31,6 +44,10 @@
 // Ajusta la ruta dependiendo de dónde pusiste la carpeta Components
 import { useAlert } from '../components/Alerts/useAlert';
 
+// Importamos el componente RunButton
+import RunButton from '../components/Instance Actions Buttons/RunButton.vue';
+import PauseButton from '../components/Instance Actions Buttons/PauseButton.vue';
+import DeleteButton from '../components/Instance Actions Buttons/DeleteButton.vue';
 // Extraemos la función para mostrar la alerta
 const { show } = useAlert()
 
