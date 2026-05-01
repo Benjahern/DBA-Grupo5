@@ -1,7 +1,7 @@
 <template>
   <div class="home-container">
     <header class="hero">
-      <h1>Bienvenido al Proyecto</h1>
+      <h1>Bienvenido, {{ userName }}</h1>
       <p>Esta es la página principal (HomeView). El enrutador está funcionando correctamente.</p>
       
       <button @click="triggerWelcomeAlert" class="action-btn">
@@ -19,6 +19,23 @@
 
       <div style="margin-top: 2rem; display: flex; justify-content: center;">
         <DeleteButton />
+      </div>
+
+      <div>
+        <Dashboard>
+        </Dashboard>
+                  <InstanceContainer
+          :instance="{
+            id: 1,
+            name: 'Instancia 1',
+            region: 'us-east-1',
+            ip: '111.111.111',
+            state: 'terminated',
+            cpu: '4 vCPU',
+            ram: '16 GB',
+            storage: '100 GB'
+          }"
+        />
       </div>
     </header>
 
@@ -48,8 +65,26 @@ import { useAlert } from '../components/Alerts/useAlert';
 import RunButton from '../components/Instance Actions Buttons/RunButton.vue';
 import PauseButton from '../components/Instance Actions Buttons/PauseButton.vue';
 import DeleteButton from '../components/Instance Actions Buttons/DeleteButton.vue';
+import InstanceContainer from '../components/Instance Container/InstanceContainer.vue';
+import Dashboard from '@/components/Instance Container/Dashboard.vue';
+
+import { computed } from 'vue';
+import { getUser } from '../services/auth.js';
+
 // Extraemos la función para mostrar la alerta
 const { show } = useAlert()
+
+const userName = computed(() => {
+  try {
+    const raw = localStorage.getItem('user');
+    const stored = raw ? JSON.parse(raw) : null;
+    if (stored?.name) return stored.name;
+  } catch (error_) {
+    // ignore
+  }
+  const tokenUser = getUser();
+  return tokenUser?.given_name || tokenUser?.name || tokenUser?.preferred_username || tokenUser?.email || 'Usuario';
+});
 
 // Función que se ejecuta al hacer clic en el botón
 const triggerWelcomeAlert = () => {

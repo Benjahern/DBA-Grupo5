@@ -17,6 +17,8 @@ const api = axios.create({
   },
 });
 
+export const apiBaseUrl = baseURL;
+
 api.interceptors.request.use(
   async (config) => {
     // Con esto no bloqueamos el login ni el registro
