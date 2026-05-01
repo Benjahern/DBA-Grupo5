@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,18 +29,15 @@ public class InstanceController {
     }
 
     @PostMapping
-    public ResponseEntity<Instance> create(@RequestBody CreateInstanceRequest request) {
-        Instance instance = instanceService.createInstance(
-                request.getName(),
-                request.getUserId(),
-                request.getCpuId(),
-                request.getRamId(),
-                request.getStorageId(),
-                request.getRegionId(),
-                request.getColor(),
-                request.getBaseImage()
-        );
-        return ResponseEntity.ok(instance);
+    public Mono<Instance> create(@RequestBody CreateInstanceRequest req) {
+        return Mono.fromCallable(() -> {
+            // Aquí llamas a tu metodo actual que tiene toda la lógica
+            return instanceService.createInstance(
+                    req.getName(), req.getUserId(), req.getCpuId(),
+                    req.getRamId(), req.getStorageId(), req.getRegionId(),
+                    req.getColor(), req.getBaseImage()
+            );
+        }).subscribeOn(Schedulers.boundedElastic()); // <--- CLAVE
     }
 
     @GetMapping("/{id}")

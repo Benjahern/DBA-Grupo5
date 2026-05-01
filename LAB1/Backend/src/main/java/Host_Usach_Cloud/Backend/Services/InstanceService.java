@@ -1,21 +1,23 @@
 package Host_Usach_Cloud.Backend.Services;
 
-import Host_Usach_Cloud.Backend.Entity.CPU;
 import Host_Usach_Cloud.Backend.Entity.Instance;
-import Host_Usach_Cloud.Backend.Entity.Ram;
 import Host_Usach_Cloud.Backend.Repository.CpuRepository;
 import Host_Usach_Cloud.Backend.Repository.InstanceRepository;
 import Host_Usach_Cloud.Backend.Repository.RamRepository;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.model.HostConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import com.github.dockerjava.api.DockerClient;
 
+import java.sql.CallableStatement;
+import java.sql.Types;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class InstanceService {
@@ -33,76 +35,105 @@ public class InstanceService {
         this.instanceRepository = instanceRepository;
     }
 
-    //En proceso, me faltan los demas repos (benja h)
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     public Instance createInstance(String name, Long userId, Long cpuId, Long ramId, Long storageId,
-                                          Long regionId, String color, String baseImage){
+                                   Long regionId, String color, String baseImage) {
 
-        //Revisamos los recursos antes
-        CPU cpu = cpuRepository.findById(cpuId).orElseThrow(() -> new IllegalArgumentException("El Id de Cpu no existe"));
-        Ram ram = ramRepository.findById(ramId).orElseThrow(() -> new IllegalArgumentException("El Id de Ram no existe"));
+        System.out.println("Enviando usuario: " + userId);
+        // 1. OBTENER RECURSOS (Corregido con comillas y nombres exactos)
+        Map<String, Object> ramData = jdbcTemplate.queryForMap(
+                "SELECT \"Quantity\" FROM \"Ram\" WHERE \"Ram_id\" = ?", ramId);
+        Map<String, Object> cpuData = jdbcTemplate.queryForMap(
+                "SELECT \"Quantity\" FROM \"CPU\" WHERE \"Cpu_id\" = ?", cpuId);
 
-        CreateContainerResponse container = null;
+        long ramQuantity = ((Number) ramData.get("Quantity")).longValue();
+        long cpuQuantity = ((Number) cpuData.get("Quantity")).longValue();
 
-        /**
-         * Esta parte es la complicada, tenemos que traducir nuestros componentes al container de docker
-         *
-         */
-        try{
+        // 2. LLAMADA MANUAL AL PROCEDIMIENTO (Sin fallos de metadatos)
+        String sql = "CALL provision_instance_sp(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-            //traduccion de quantity a ram de docker (la l es por el numero long)
-            long ramDocker = ram.getQuantity() * 1024L * 1024L * 1024L;
-            //Ahora lo mismo pero para cpu
-            long cpuDocker = cpu.getQuantity() * 1000000000L;
+        Map<String, Object> out = jdbcTemplate.execute(sql, (CallableStatement cs) -> {
+            cs.setString(1, name);
+            cs.setLong(2, userId);
+            cs.setLong(3, cpuId);
+            cs.setLong(4, ramId);
+            cs.setLong(5, storageId);
+            cs.setLong(6, regionId);
+            cs.setString(7, color);
+            cs.setString(8, baseImage);
 
-            //configuracion del contenedor
-            HostConfig hostConfig = HostConfig.newHostConfig().withMemory(ramDocker).withNanoCPUs(cpuDocker);
+            // Registrar parámetros OUT (9 y 10)
+            cs.registerOutParameter(9, Types.BIGINT);   // p_new_instance_id
+            cs.registerOutParameter(10, Types.VARCHAR); // p_assigned_ip
 
-            // Recomendado por la ia para identificar
-            String containerName = name + "-" + userId + "-" + UUID.randomUUID().toString().substring(0,5);
+            cs.execute();
 
-            //Mandamos el mensaje a docker
-            container = dockerClient.createContainerCmd(baseImage).withName(containerName).withHostConfig(hostConfig)
+            Map<String, Object> res = new HashMap<>();
+            res.put("id", cs.getLong(9));
+            res.put("ip", cs.getString(10));
+            return res;
+        });
+
+        Long newId = (Long) out.get("id");
+        String assignedIp = (String) out.get("ip");
+
+        try {
+            // 3. LÓGICA DE DOCKER (Se mantiene igual)
+            long ramDocker = ramQuantity * 1024L * 1024L * 1024L;
+            long cpuDocker = cpuQuantity * 1000000000L;
+
+            String dockerName = name.replaceAll("\\s+", "-") + "-" + newId;
+
+            CreateContainerResponse container = dockerClient.createContainerCmd(baseImage)
+                    .withName(dockerName)
+                    .withHostConfig(HostConfig.newHostConfig().withMemory(ramDocker).withNanoCPUs(cpuDocker))
                     .exec();
 
-            //Iniciamos el contenedor
             dockerClient.startContainerCmd(container.getId()).exec();
 
-            String ipAddress = resolveContainerIp(container.getId());
+            // 4. ACTUALIZACIÓN FINAL EN BD
+            jdbcTemplate.update(
+                    "UPDATE \"Instance\" SET \"Container_id\" = ?, \"State\" = 'Running' WHERE \"Instance_id\" = ?",
+                    container.getId(), newId);
 
-            Instance newInstance = Instance.builder()
-                    .Name(name)
-                    .Ram_id(ramId)
-                    .Cpu_id(cpuId)
-                    .Started_at(LocalDateTime.now())
-                    .Storage_id(storageId)
-                    .Terminated(false)
-                    .State("Running")
-                    .User_id(userId)
-                    .Region_id(regionId)
-                    .Container_id(container.getId()) // Guardamos el ID real de Docker
-                    .Active_hours(Duration.ZERO)
-                    .Ip_address(ipAddress)
-                    .Color(color)
+            // 5. RETORNAR EL OBJETO COMPLETO
+            return Instance.builder()
+                    .Instance_id(newId)         // De la base de datos
+                    .Name(name)                // Del parámetro de entrada
+                    .Ram_id(ramId)             // Del parámetro de entrada
+                    .Cpu_id(cpuId)             // Del parámetro de entrada
+                    .Storage_id(storageId)     // Del parámetro de entrada
+                    .Region_id(regionId)       // Del parámetro de entrada
+                    .User_id(userId)           // Del parámetro de entrada
+                    .Color(color)              // Del parámetro de entrada
+                    .Base_image(baseImage)     // Del parámetro de entrada
+                    .Ip_address(assignedIp)    // De la base de datos (SP)
+                    .Container_id(container.getId()) // De Docker
+                    .State("Running")          // Estado final
+                    .Terminated(false)         // Valor por defecto
+                    .Started_at(LocalDateTime.now()) // Fecha actual
+                    .Active_hours(Duration.ZERO)     // Inicializado
                     .build();
 
-            return instanceRepository.save(newInstance);
-        } catch ( Exception e){
-            if (container != null && container.getId() != null) {
-                try {
-                    System.err.println("Haciendo rollback en Docker... eliminando contenedor: " + container.getId());
-                    dockerClient.removeContainerCmd(container.getId()).withForce(true).exec();
-                } catch (Exception dockerEx) {
-                    System.err.println("CRÍTICO: No se pudo eliminar el contenedor huérfano " + container.getId());
-                }
-            }
-            throw new RuntimeException("Error en la instancia en Host Usach Cloud: " + e.getMessage(), e);
-
-
-
+        } catch (Exception e) {
+            handleProvisioningFailure(newId, assignedIp);
+            throw new RuntimeException("Fallo en Docker: " + e.getMessage());
         }
+    }
 
+    private void handleProvisioningFailure(Long instanceId, String ipAddress) {
+        try {
+            // Liberar IP en tabla "Ip"
+            jdbcTemplate.update("UPDATE \"Ip\" SET \"Used\" = FALSE WHERE \"Ip_address\" = ?", ipAddress);
 
-
+            // Eliminar Ticket y luego Instancia
+            jdbcTemplate.update("DELETE FROM \"Ticket\" WHERE \"Instance_id\" = ?", instanceId);
+            jdbcTemplate.update("DELETE FROM \"Instance\" WHERE \"Instance_id\" = ?", instanceId);
+        } catch (Exception e) {
+            System.err.println("Error en limpieza: " + e.getMessage());
+        }
     }
 
     public Instance getInstanceById(Long instanceId) {

@@ -44,4 +44,7 @@ public class Instance {
 
     //parametro pedido por el marco
     private String Color;
+
+    //parametro sando
+    private String Base_image;
 }
