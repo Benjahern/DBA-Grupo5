@@ -49,6 +49,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router'; 
 import api from '../services/http-common';
 import { useAlert } from '../components/Alerts/useAlert';
+import { setToken } from '../services/auth.js';
 
 const router = useRouter();
 const { show } = useAlert();
@@ -64,13 +65,20 @@ const storeAuthData = (data) => {
   if (data.access_token) {
     localStorage.setItem('access_token', data.access_token);
     if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+    setToken(data.access_token);
   } else if (data.token?.access_token) {
     localStorage.setItem('access_token', data.token.access_token);
     if (data.token.refresh_token) localStorage.setItem('refresh_token', data.token.refresh_token);
     localStorage.setItem('app_token', data.token.access_token);
+    setToken(data.token.access_token);
   }
   if (data.user) {
     localStorage.setItem('user', JSON.stringify(data.user));
+  } else if (data.name || data.email) {
+    localStorage.setItem('user', JSON.stringify({
+      name: data.name || data.email,
+      email: data.email
+    }));
   }
 };
 

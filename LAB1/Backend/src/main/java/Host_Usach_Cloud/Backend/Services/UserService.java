@@ -61,10 +61,16 @@ public class UserService {
             userRepresentation.setUsername(email); // Usamos el email como username
             userRepresentation.setEmail(email);
             userRepresentation.setFirstName(name);
-            userRepresentation.setLastName(name);
+            userRepresentation.setLastName("");
             userRepresentation.setEnabled(true);
             userRepresentation.setEmailVerified(true);
             userRepresentation.setRequiredActions(Collections.emptyList());
+
+            CredentialRepresentation passwordCred = new CredentialRepresentation();
+            passwordCred.setTemporary(false);
+            passwordCred.setType(CredentialRepresentation.PASSWORD);
+            passwordCred.setValue(password);
+            userRepresentation.setCredentials(Collections.singletonList(passwordCred));
 
             try (Response response = usersResource.create(userRepresentation)) {
                 if (response.getStatus() != 201) {
@@ -80,15 +86,11 @@ public class UserService {
             }
 
             try {
-                CredentialRepresentation passwordCred = new CredentialRepresentation();
-                passwordCred.setTemporary(false);
-                passwordCred.setType(CredentialRepresentation.PASSWORD);
-                passwordCred.setValue(password);
-                usersResource.get(keycloakUserId).resetPassword(passwordCred);
-
                 // Evita bloqueos de grant_type=password por acciones requeridas pendientes
                 UserRepresentation createdUser = usersResource.get(keycloakUserId).toRepresentation();
                 createdUser.setRequiredActions(Collections.emptyList());
+                createdUser.setEmailVerified(true);
+                createdUser.setEnabled(true);
                 usersResource.get(keycloakUserId).update(createdUser);
 
                 RoleRepresentation realmRole = realmResource.roles().get(roleName).toRepresentation();

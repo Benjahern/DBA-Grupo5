@@ -10,6 +10,15 @@ import { ref } from 'vue';
 import api from '../../services/http-common.js';
 import { useAlert } from '../Alerts/useAlert.js';
 
+const props = defineProps({
+    instanceId: {
+        type: [Number, String],
+        required: false
+    }
+});
+
+const emit = defineEmits(['updated']);
+
 const isRunning = ref(false);
 
 const { show } = useAlert();
@@ -47,10 +56,21 @@ const getActionError = (err) => {
 };
 
 const handleClick = async () => {
+    if (!props.instanceId) {
+        show({
+            message: 'No se pudo ejecutar: falta el id de la instancia.',
+            severity: 'error',
+            autoHideMs: 4000
+        });
+        return;
+    }
+
     isRunning.value = true;
 
     try {
-        await api.post('', {});
+        const payload = { state: 'Running' };
+        await api.put(`/api/instances/${props.instanceId}/state`, payload);
+        emit('updated', 'Running');
         show({
             message: 'Instancia ejecutada exitosamente.',
             severity: 'success',

@@ -1,20 +1,65 @@
-<script setup lang="ts">
-import { reactive } from 'vue';
+<script setup>
+import { onMounted, ref } from 'vue';
 import Sidebar from './components/Structure/Sidebar.vue';
 import TransitionAlert from './components/Alerts/TransitionAlert.vue';
 import router from './routes';
+import api from './services/http-common.js';
+import { clearSession, getToken, getUser, subscribe } from './services/auth.js';
 
-const session = reactive({
-  name: 'Admin User',
-  role: 'SysAdmin',
-  token: localStorage.getItem('token')
-});
+const sessionName = ref('Usuario');
+const sessionRole = ref('Usuario');
+
+const readStoredUser = () => {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch (error_) {
+    return null;
+  }
+};
+
+const resolveUserName = () => {
+  const stored = readStoredUser();
+  if (stored?.name) return stored.name;
+  const tokenUser = getUser();
+  return tokenUser?.given_name || tokenUser?.name || tokenUser?.preferred_username || tokenUser?.email || 'Usuario';
+};
+
+const resolveUserRole = () => {
+  const stored = readStoredUser();
+  return stored?.role || 'Usuario';
+};
+
+const fetchCurrentUser = async () => {
+  try {
+    const response = await api.get('/api/users/me');
+    if (response?.data) {
+      localStorage.setItem('user', JSON.stringify(response.data));
+    }
+  } catch (error_) {
+    // ignore
+  }
+};
+
+const refreshSession = async () => {
+  const stored = readStoredUser();
+  if (!stored && getToken()) {
+    await fetchCurrentUser();
+  }
+  sessionName.value = resolveUserName();
+  sessionRole.value = resolveUserRole();
+};
 
 const handleLogout = () => {
   console.log("Eliminando token y cerrando sesión...");
-  localStorage.removeItem('token'); // Borra la credencial de seguridad
+  clearSession();
   router.push({ name: 'login' });  // Salta a la vista de Login usando el router
 };
+
+onMounted(() => {
+  refreshSession();
+  subscribe(() => { refreshSession(); });
+});
 </script>
 
 <template>
@@ -22,8 +67,8 @@ const handleLogout = () => {
     <TransitionAlert />
     
     <Sidebar 
-      :user-name="session.name"
-      :user-role="session.role"
+      :user-name="sessionName"
+      :user-role="sessionRole"
       :active-section="currentSection"
       @update:section="handleSectionChange"
       @logout="handleLogout"
