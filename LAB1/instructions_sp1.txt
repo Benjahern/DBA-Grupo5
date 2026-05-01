@@ -1,0 +1,101 @@
+Teniendo el contenedor de Docker corriendo, se registra usuario, se accede a postman y se hace login:
+
+POST: http://localhost:8080/api/auth/login
+
+{
+    "email": "hola@gmail.com",
+    "password": 1234
+}
+
+Se obtiene el token --> Aplicar en Authentication --> bearer token
+
+
+Luego poblamos la base de datos desde la query tool en pgAdmin:
+
+La base de datos ya cuenta con 2 roles --> admin, user
+
+-- 1. Insertar hardware disponible (Catálogos)
+INSERT INTO "CPU" ("Quantity", "Cost_ph") VALUES (2, 0.05), (4, 0.10);
+INSERT INTO "Ram" ("Quantity", "Cost_ph") VALUES (4, 0.02), (8, 0.04);
+INSERT INTO "Storage" ("Quantity", "Cost_ph") VALUES (20, 0.01), (50, 0.02);
+
+-- 2. Insertar Región y su IP
+INSERT INTO "Region" ("Name") VALUES ('Chile-Central');
+INSERT INTO "Ip" ("Ip_address", "Used", "Region_id") VALUES ('192.168.1.50', FALSE, 1);
+
+
+Ejecutamos el SP1 en la misma query tool:
+
+CREATE OR REPLACE PROCEDURE provision_instance_sp(
+    IN p_name VARCHAR,
+    IN p_user_id BIGINT,
+    IN p_cpu_id BIGINT,
+    IN p_ram_id BIGINT,
+    IN p_storage_id BIGINT,
+    IN p_region_id BIGINT,
+    IN p_color VARCHAR,
+    IN p_base_image VARCHAR,
+    OUT p_new_instance_id BIGINT,
+    OUT p_assigned_ip VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_ip_id BIGINT;
+BEGIN
+    -- 1. Buscar y bloquear una IP disponible en la región solicitada
+    SELECT "Ip_id", "Ip_address" INTO v_ip_id, p_assigned_ip 
+    FROM "Ip" 
+    WHERE "Region_id" = p_region_id AND "Used" = FALSE 
+    LIMIT 1 
+    FOR UPDATE;
+
+    -- Validar si se encontró IP
+    IF v_ip_id IS NULL THEN 
+        RAISE EXCEPTION 'No hay direcciones IP disponibles en la región con ID %', p_region_id; 
+    END IF;
+
+    -- 2. Marcar la IP como ocupada
+    UPDATE "Ip" SET "Used" = TRUE WHERE "Ip_id" = v_ip_id;
+
+    -- 3. Crear el registro de la instancia
+    -- Nota: 'Provisioning' ya está permitido en tu CONSTRAINT CHECK
+    INSERT INTO "Instance" (
+        "Name", "Ram_id", "Cpu_id", "Storage_id", "State", 
+        "User_id", "Region_id", "Ip_id", "Color", "Base_image", "Started_at"
+    )
+    VALUES (
+        p_name, p_ram_id, p_cpu_id, p_storage_id, 'Provisioning', 
+        p_user_id, p_region_id, v_ip_id, p_color, p_base_image, NOW()
+    )
+    RETURNING "Instance_id" INTO p_new_instance_id;
+
+    -- 4. Crear el registro inicial en Ticket (Facturación)
+    -- En tu script la tabla Ticket no tiene 'start_time', pero requiere 'Usage' y 'Price'.
+    -- Para el aprovisionamiento, iniciamos con valores en cero.
+    INSERT INTO "Ticket" ("Instance_id", "Usage", "Price")
+    VALUES (p_new_instance_id, INTERVAL '0 seconds', 0.0);
+
+    -- Si algo falla aquí o en un Trigger vinculado, se hace ROLLBACK automático.
+END;
+$$;
+
+Ojo: Debe aparecer el procedimiento en schemas --> procedimientos en la base de datos
+
+Finalmente enviamos el JSON para crear una instancia:
+
+POST http://localhost:8080/api/instances
+
+JSON:
+{
+  "name": "Mi-Instancia-Desarrollo",
+  "userId": 1,
+  "cpuId": 1,
+  "ramId": 1,
+  "storageId": 1,
+  "regionId": 1,
+  "color": "#3498db",
+  "baseImage": "ubuntu-22.04"
+}
+
+(Hasta ahora requiere tener la imagen instalada)
