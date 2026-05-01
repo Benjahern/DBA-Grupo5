@@ -121,6 +121,8 @@ public class InstanceRepository {
 
     private Instance mapInstance(ResultSet rs) throws SQLException {
         Timestamp startedAtTs = rs.getTimestamp("Started_at");
+        String intervalStr = rs.getString("Active_hours");
+        Duration activeHours = parsePgInterval(intervalStr);
         return Instance.builder()
                 .Instance_id(rs.getLong("Instance_id"))
                 .Name(rs.getString("Name"))
@@ -133,10 +135,25 @@ public class InstanceRepository {
                 .User_id(rs.getLong("User_id"))
                 .Region_id(rs.getLong("Region_id"))
                 .Container_id(rs.getString("Container_id"))
-                .Active_hours(Duration.ofHours(rs.getLong("Active_hours")))
+                .Active_hours(activeHours)
                 .Ip_address(rs.getString("Ip_address"))
                 .Color(rs.getString("Color"))
                 .build();
+    }
+
+    private Duration parsePgInterval(String intervalStr) {
+        if (intervalStr == null || intervalStr.isBlank()) {
+            return Duration.ZERO;
+        }
+        try {
+            String[] parts = intervalStr.split(":");
+            long hours = Long.parseLong(parts[0]);
+            long minutes = Long.parseLong(parts[1]);
+            long seconds = Long.parseLong(parts[2]);
+            return Duration.ofHours(hours).plusMinutes(minutes).plusSeconds(seconds);
+        } catch (Exception e) {
+            return Duration.ZERO;
+        }
     }
 
     
