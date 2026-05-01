@@ -2,6 +2,8 @@ package Host_Usach_Cloud.Backend.Controllers;
 
 import Host_Usach_Cloud.Backend.Entity.Instance;
 import Host_Usach_Cloud.Backend.Services.InstanceService;
+import com.github.dockerjava.api.model.Statistics;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -84,6 +87,14 @@ public class InstanceController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         instanceService.deleteInstance(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping(value = "/{id}/stats", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    public ResponseEntity<Flux<Statistics>> getStats(@PathVariable Long id) {
+        Instance instance = instanceService.getInstanceById(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_NDJSON)
+                .body(instanceService.getContainerStatsReactive(instance.getContainer_id()));
     }
 
     public static class CreateInstanceRequest {

@@ -2,14 +2,17 @@ package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.CPU;
 import Host_Usach_Cloud.Backend.Entity.Instance;
+import Host_Usach_Cloud.Backend.Entity.Ip;
 import Host_Usach_Cloud.Backend.Entity.Ram;
-import Host_Usach_Cloud.Backend.Repository.CpuRepository;
 import Host_Usach_Cloud.Backend.Repository.InstanceRepository;
-import Host_Usach_Cloud.Backend.Repository.RamRepository;
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.StatsCmd;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Statistics;
 import org.springframework.stereotype.Service;
 import com.github.dockerjava.api.DockerClient;
+import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -21,15 +24,18 @@ import java.util.UUID;
 public class InstanceService {
 
     private final DockerClient dockerClient;
-    private final CpuRepository cpuRepository;
-    private final RamRepository ramRepository;
+    private final CpuService cpuService;
+    private final RamService ramService;
+    private final IpService ipService;
     private final InstanceRepository instanceRepository;
 
-    public InstanceService(DockerClient dockerClient, CpuRepository cpuRepository,
-                           RamRepository ramRepository, InstanceRepository instanceRepository) {
+    public InstanceService(DockerClient dockerClient, CpuService cpuService,
+                           RamService ramService, IpService ipService,
+                           InstanceRepository instanceRepository) {
         this.dockerClient = dockerClient;
-        this.cpuRepository = cpuRepository;
-        this.ramRepository = ramRepository;
+        this.cpuService = cpuService;
+        this.ramService = ramService;
+        this.ipService = ipService;
         this.instanceRepository = instanceRepository;
     }
 
@@ -38,8 +44,10 @@ public class InstanceService {
                                           Long regionId, String color, String baseImage){
 
         //Revisamos los recursos antes
-        CPU cpu = cpuRepository.findById(cpuId).orElseThrow(() -> new IllegalArgumentException("El Id de Cpu no existe"));
-        Ram ram = ramRepository.findById(ramId).orElseThrow(() -> new IllegalArgumentException("El Id de Ram no existe"));
+        CPU cpu = cpuService.getById(cpuId)
+                .orElseThrow(() -> new IllegalArgumentException("El Id de Cpu no existe"));
+        Ram ram = ramService.getById(ramId)
+                .orElseThrow(() -> new IllegalArgumentException("El Id de Ram no existe"));
 
         CreateContainerResponse container = null;
 
@@ -68,6 +76,14 @@ public class InstanceService {
             dockerClient.startContainerCmd(container.getId()).exec();
 
             String ipAddress = resolveContainerIp(container.getId());
+
+            // Registrar la IP en la BD si no existe
+            Ip savedIp = ipService.findByAddress(ipAddress)
+                    .orElseGet(() -> {
+                        Ip newIp = ipService.create(ipAddress);
+                        return newIp;
+                    });
+            ipService.toggleUsed(savedIp.getIp_id());
 
             Instance newInstance = Instance.builder()
                     .Name(name)
@@ -137,8 +153,25 @@ public class InstanceService {
         }
     }
 
+    public Flux<Statistics> getContainerStatsReactive(String containerId) {
+        return Flux.create(sink -> {
+            StatsCmd statsCmd = dockerClient.statsCmd(containerId);
+            ResultCallback<Statistics> callback = new ResultCallback.Adapter<Statistics>() {
+                @Override
+                public void onNext(Statistics stats) {
+                    sink.next(stats);
+                }
+            };
+            statsCmd.exec(callback);
+            sink.onCancel(() -> {
+                try {
+                    callback.close();
+                    statsCmd.close();
+                } catch (Exception ignored) {}
+            });
+        });
+    }
 
-    
     // Solicitado por enunciado
     public Instance updateStateByid(Long InstanceId, String State) {
 

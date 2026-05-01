@@ -76,4 +76,34 @@ public class AuthController {
                 .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body((Object) Map.of("error", "Credenciales inválidas o error al contactar con Keycloak"))));
     }
+
+    @PostMapping("/refresh")
+    public Mono<ResponseEntity<Object>> refresh(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refresh_token");
+        if (!StringUtils.hasText(refreshToken)) {
+            return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body((Object) Map.of("error", "Refresh token es requerido")));
+        }
+
+        String tokenUrl = keycloakServerUrl + "/realms/" + realm + "/protocol/openid-connect/token";
+
+        var formData = BodyInserters.fromFormData("client_id", backendClientId)
+                .with("grant_type", "refresh_token")
+                .with("refresh_token", refreshToken);
+
+        if (StringUtils.hasText(backendClientSecret)) {
+            formData = formData.with("client_secret", backendClientSecret);
+        }
+
+        return webClientBuilder.build()
+                .post()
+                .uri(tokenUrl)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(formData)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(response -> ResponseEntity.ok((Object) response))
+                .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body((Object) Map.of("error", "Token inválido o expirado"))));
+    }
 }
