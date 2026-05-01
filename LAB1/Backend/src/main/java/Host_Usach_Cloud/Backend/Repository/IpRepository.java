@@ -18,8 +18,8 @@ public class IpRepository {
     }
 
     public Ip save(Ip ip) {
-        String sql = "INSERT INTO \"Ip\" (\"Ip_address\", \"Used\") VALUES (?, ?) RETURNING \"Ip_id\"";
-        Long id = jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getLong(1), ip.getIp_address(), ip.isUsed());
+        String sql = "INSERT INTO \"Ip\" (\"Ip_address\", \"Assigned\") VALUES (?, ?) RETURNING \"Ip_id\"";
+        Long id = jdbcTemplate.queryForObject(sql, (rs, rowNum) -> rs.getLong(1), ip.getAddress(), ip.isAssigned());
         ip.setIp_id(id);
         return ip;
     }
@@ -45,15 +45,15 @@ public class IpRepository {
     }
 
     public boolean updateUsed(Long id, boolean used) {
-        String sql = "UPDATE \"Ip\" SET \"Used\" = ? WHERE \"Ip_id\" = ?";
+        String sql = "UPDATE \"Ip\" SET \"Assigned\" = ? WHERE \"Ip_id\" = ?";
         return jdbcTemplate.update(sql, used, id) > 0;
     }
 
-    private Ip mapIp(ResultSet rs) throws SQLException {
+    private Ip mapIp(ResultSet rs, int rowNum) throws SQLException {
         return Ip.builder()
                 .Ip_id(rs.getLong("Ip_id"))
-                .Ip_address(rs.getString("Ip_address"))
-                .Used(rs.getBoolean("Used"))
+                .Address(rs.getString("Ip_address"))
+                .Assigned(rs.getBoolean("Assigned"))
                 .build();
     }
 }

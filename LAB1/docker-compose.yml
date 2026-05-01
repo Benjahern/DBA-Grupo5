@@ -17,6 +17,8 @@ services:
       - ./BD/createDb.sql:/docker-entrypoint-initdb.d/createDb.sql:ro
       - ./Backend/src/main/resources/db/index.sql:/docker-entrypoint-initdb.d/index.sql:ro
       - ./Backend/src/main/resources/db/procedures.sql:/docker-entrypoint-initdb.d/procedures.sql:ro
+      - ./Backend/src/main/resources/db/triggers.sql:/docker-entrypoint-initdb.d/triggers.sql:ro
+
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s

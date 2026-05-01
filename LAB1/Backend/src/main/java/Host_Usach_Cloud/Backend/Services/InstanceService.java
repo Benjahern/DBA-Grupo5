@@ -44,10 +44,8 @@ public class InstanceService {
                                           Long regionId, String color, String baseImage){
 
         //Revisamos los recursos antes
-        CPU cpu = cpuService.getById(cpuId)
-                .orElseThrow(() -> new IllegalArgumentException("El Id de Cpu no existe"));
-        Ram ram = ramService.getById(ramId)
-                .orElseThrow(() -> new IllegalArgumentException("El Id de Ram no existe"));
+        CPU cpu = cpuService.getCpuById(cpuId);
+        Ram ram = ramService.getRamById(ramId);
 
         CreateContainerResponse container = null;
 
