@@ -3,6 +3,7 @@
 		<div class="instances-card">
 			<header class="card-header">
 				<h2>Instancias activas del usuario {{ activeCount }} de {{ totalCount }}</h2>
+                <CreateButton></CreateButton>
 			</header>
 
 			<div class="table-header">
@@ -35,6 +36,7 @@ import api from '../../services/http-common.js';
 import { useAlert } from '../Alerts/useAlert.js';
 import { getUser } from '../../services/auth.js';
 import InstanceContainer from './InstanceContainer.vue';
+import CreateButton from '../Instance Actions Buttons/CreateButton.vue';
 
 const { show } = useAlert();
 
