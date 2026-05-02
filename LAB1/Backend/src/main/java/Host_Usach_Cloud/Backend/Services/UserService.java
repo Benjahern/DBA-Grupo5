@@ -57,50 +57,68 @@ public class UserService {
             UsersResource usersResource = realmResource.users();
             String keycloakUserId = null;
 
+            String trimmedName = name == null ? "" : name.trim();
+            String firstName = trimmedName.isEmpty() ? email : trimmedName;
+            String lastName = "";
+            int spaceIndex = trimmedName.indexOf(' ');
+            if (spaceIndex > 0 && spaceIndex < trimmedName.length() - 1) {
+                firstName = trimmedName.substring(0, spaceIndex).trim();
+                lastName = trimmedName.substring(spaceIndex + 1).trim();
+            } else if (!trimmedName.isEmpty()) {
+                lastName = trimmedName;
+            }
+            if (lastName.isEmpty()) {
+                lastName = firstName;
+            }
+
+            // 1. Crear usuario y luego fijar credenciales de forma explicita
             UserRepresentation userRepresentation = new UserRepresentation();
-            userRepresentation.setUsername(email); // Usamos el email como username
+            userRepresentation.setUsername(email);
             userRepresentation.setEmail(email);
-            userRepresentation.setFirstName(name);
-            userRepresentation.setLastName(name);
+            userRepresentation.setFirstName(firstName);
+            userRepresentation.setLastName(lastName);
             userRepresentation.setEnabled(true);
             userRepresentation.setEmailVerified(true);
             userRepresentation.setRequiredActions(Collections.emptyList());
 
+            String userId;
             try (Response response = usersResource.create(userRepresentation)) {
                 if (response.getStatus() != 201) {
                     throw new RuntimeException("Error al crear usuario en Keycloak. Status: " + response.getStatus());
                 }
-
                 if (response.getLocation() == null || response.getLocation().getPath() == null) {
                     throw new RuntimeException("Keycloak no devolvio la ubicacion del usuario creado");
                 }
-
-                // Obtener el ID del usuario recién creado en Keycloak
-                keycloakUserId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
+                userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
             }
+
+            keycloakUserId = userId; // para rollback en caso de error
 
             try {
                 CredentialRepresentation passwordCred = new CredentialRepresentation();
                 passwordCred.setTemporary(false);
                 passwordCred.setType(CredentialRepresentation.PASSWORD);
                 passwordCred.setValue(password);
-                usersResource.get(keycloakUserId).resetPassword(passwordCred);
 
-                // Evita bloqueos de grant_type=password por acciones requeridas pendientes
-                UserRepresentation createdUser = usersResource.get(keycloakUserId).toRepresentation();
-                createdUser.setRequiredActions(Collections.emptyList());
-                usersResource.get(keycloakUserId).update(createdUser);
+                usersResource.get(userId).resetPassword(passwordCred);
 
+                UserRepresentation persisted = usersResource.get(userId).toRepresentation();
+                persisted.setEmailVerified(true);
+                persisted.setRequiredActions(Collections.emptyList());
+                usersResource.get(userId).update(persisted);
+
+                // 2. Asignar rol
                 RoleRepresentation realmRole = realmResource.roles().get(roleName).toRepresentation();
-                usersResource.get(keycloakUserId).roles().realmLevel().add(Collections.singletonList(realmRole));
+                usersResource.get(userId).roles().realmLevel().add(Collections.singletonList(realmRole));
 
+                // 3. Persistir en BD (si falla aqui, rollback de Keycloak)
                 return persistUserAndRoleInDatabase(email, name, roleName);
             } catch (Exception e) {
                 rollbackKeycloakUser(usersResource, keycloakUserId, email, e);
                 throw new RuntimeException("No se pudo completar el registro atomico: " + e.getMessage(), e);
             }
 
-        }).subscribeOn(Schedulers.boundedElastic()); // Ejecutar en hilo separado porque son operaciones bloqueantes
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private Users persistUserAndRoleInDatabase(String email, String name, String roleName) {

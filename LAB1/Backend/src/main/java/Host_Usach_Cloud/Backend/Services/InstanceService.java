@@ -75,13 +75,9 @@ public class InstanceService {
 
             String ipAddress = resolveContainerIp(container.getId());
 
-            // Registrar la IP en la BD si no existe
-            Ip savedIp = ipService.findByAddress(ipAddress)
-                    .orElseGet(() -> {
-                        Ip newIp = ipService.create(ipAddress);
-                        return newIp;
-                    });
-            ipService.toggleUsed(savedIp.getIp_id());
+            // Asegurar que la IP existe en la BD (crear si no existe)
+            ipService.findByAddress(ipAddress)
+                    .orElseGet(() -> ipService.create(ipAddress));
 
             Instance newInstance = Instance.builder()
                     .Name(name)
@@ -93,13 +89,19 @@ public class InstanceService {
                     .State("Running")
                     .User_id(userId)
                     .Region_id(regionId)
-                    .Container_id(container.getId()) // Guardamos el ID real de Docker
+                    .Container_id(container.getId())
                     .Active_hours(Duration.ZERO)
                     .Ip_address(ipAddress)
                     .Color(color)
                     .build();
 
-            return instanceRepository.save(newInstance);
+            // Crear Instance primero para obtener el Instance_id
+            instanceRepository.save(newInstance);
+
+            // Llamar stored procedure para asignar IP y crear Ticket
+            instanceRepository.provisionInstance(ipAddress, newInstance.getInstance_id());
+
+            return newInstance;
         } catch ( Exception e){
             if (container != null && container.getId() != null) {
                 try {
