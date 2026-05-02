@@ -3,23 +3,7 @@
     <header class="hero">
       <h1>Bienvenido, {{ userName }}</h1>
       <p>Esta es la página principal (HomeView). El enrutador está funcionando correctamente.</p>
-      
-      <button @click="triggerWelcomeAlert" class="action-btn">
-        Probar Alerta Global
-      </button>
-
-      <!-- Importamos y renderizamos nuestro nuevo componente RunButton aquí -->
-      <div style="margin-top: 2rem; display: flex; justify-content: center;">
-        <RunButton />
-      </div>
-      
-      <div style="margin-top: 2rem; display: flex; justify-content: center;">
-        <PauseButton />
-      </div>
-
-      <div style="margin-top: 2rem; display: flex; justify-content: center;">
-        <DeleteButton />
-      </div>
+    
 
       <div>
         <Dashboard>
