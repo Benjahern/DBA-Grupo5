@@ -67,7 +67,12 @@ public class InstanceService {
             String containerName = name + "-" + userId + "-" + UUID.randomUUID().toString().substring(0,5);
 
             //Mandamos el mensaje a docker
-            container = dockerClient.createContainerCmd(baseImage).withName(containerName).withHostConfig(hostConfig)
+            // IMPORTANTE: Un contenedor ubuntu:latest por defecto corre un shell y sale inmediatamente si no se le pasa un comando continuo
+            // Usaremos "tail -f /dev/null" o "sleep infinity" para que se quede corriendo
+            container = dockerClient.createContainerCmd(baseImage)
+                    .withName(containerName)
+                    .withHostConfig(hostConfig)
+                    .withCmd("tail", "-f", "/dev/null")
                     .exec();
 
             //Iniciamos el contenedor
@@ -196,7 +201,12 @@ public class InstanceService {
 
         } else if (State.equals("Terminated")) {
             // Terminar el contenedor en Docker y eliminarlo
-            dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
+            try {
+                dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
+            } catch (Exception e) {
+                // If it is already stopped, docker normally throws NotModifiedException.
+                System.out.println("Contenedor ya estaba detenido o no se pudo detener: " + e.getMessage());
+            }
             dockerClient.removeContainerCmd(instance.getContainer_id()).withForce(true).exec();
 
             // Actualizar el estado y marcar como terminado. 

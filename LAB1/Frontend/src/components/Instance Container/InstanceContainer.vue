@@ -1,18 +1,15 @@
 <template>
     <div class="instance-container">
-
-        <div class="instance-info">
-            <div class="status-cell">
-                <Badge v-if="badgeVariant" :variant="badgeVariant" :title="localState" />
-            </div>
-            <p> {{ instance.name }}</p>
-            <p> {{ instance.region }}</p>
-            <p> {{ instance.ip }}</p>
-            <p> {{ localState }}</p>
-            <p> {{ instance.cpu }}</p>
-            <p> {{ instance.ram }}</p>
-            <p> {{ instance.storage }}</p>  
+        <div class="status-cell">
+            <Badge v-if="badgeVariant" :variant="badgeVariant" :title="localState" />
         </div>
+        <p> {{ instance.name }}</p>
+        <p> {{ instance.region }}</p>
+        <p> {{ instance.ip }}</p>
+        <p> {{ localState }}</p>
+        <p> {{ instance.cpu }}</p>
+        <p> {{ instance.ram }}</p>
+        <p> {{ instance.storage }}</p>
 
         <div class="buttons">
             <RunButton v-if="isPaused" :instance-id="instanceId" @updated="handleUpdated" />
@@ -38,6 +35,8 @@ const props = defineProps({
     instance: Object
 });
 
+const emit = defineEmits(['updated']);
+
 const localState = ref(props.instance?.state ?? '');
 
 watch(
@@ -55,6 +54,7 @@ const badgeVariant = computed(() => statusToBadgeVariant(localState.value));
 
 const handleUpdated = (nextState) => {
     localState.value = nextState;
+    emit('updated');
 };
 
 </script>
@@ -65,15 +65,15 @@ const handleUpdated = (nextState) => {
     border-radius: 7px;
     padding: 4px;
     margin: 16px 0;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 40px 1fr 0.6fr 0.8fr 0.8fr 0.6fr 0.5fr 0.6fr 120px;
+    gap: 8px;
     align-items: center;
 }
-.instance-info {
-    display: grid;
-    flex-direction: row;
-    grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
-    gap: 4px;
+
+.instance-container p {
+    margin: 0;
+    aling-content: center;
 }
 
 .status-cell {
@@ -83,10 +83,9 @@ const handleUpdated = (nextState) => {
 }
 
 .buttons {
-    display: grid;
-    grid-template-columns: repeat(3, auto);
+    display: flex;
+    justify-content: flex-end;
     gap: 8px;
-    flex-direction: row;
 }
 
 </style>

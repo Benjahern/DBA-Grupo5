@@ -1,6 +1,6 @@
 <template>
-    <button @click="handleClick" class="delete-btn" :disabled="isRunning">
-        <i class="pi pi-trash" v-if="!isRunning"></i>
+    <button @click="handleClick" class="delete-btn" :disabled="isDeleting">
+        <i class="pi pi-trash" v-if="!isDeleting"></i>
         <i class="pi pi-spin pi-spinner" v-else></i>
     </button>
 </template>
@@ -19,7 +19,7 @@ const props = defineProps({
 
 const emit = defineEmits(['updated']);
 
-const isRunning = ref(false);
+const isDeleting = ref(false);
 
 const { show } = useAlert();
 
@@ -66,7 +66,7 @@ const handleClick = async () => {
         return;
     }
 
-    isRunning.value = true;
+    isDeleting.value = true;
 
     try {
         const payload = { state: 'Terminated' };
@@ -80,7 +80,7 @@ const handleClick = async () => {
     } catch (err){
         getActionError(err);    
     } finally {
-        isRunning.value = false;
+        isDeleting.value = false;
     }
 };
 </script>

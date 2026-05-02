@@ -3,7 +3,7 @@
 		<div class="instances-card">
 			<header class="card-header">
 				<h2>Instancias activas del usuario {{ activeCount }} de {{ totalCount }}</h2>
-                <CreateButton></CreateButton>
+                <CreateButton @created="fetchInstances"></CreateButton>
 			</header>
 
 			<div class="table-header">
@@ -24,6 +24,7 @@
 					v-for="(instance, index) in viewInstances"
 					:key="instance.id ?? index"
 					:instance="instance"
+                    @updated="fetchInstances"
 				/>
 			</div>
 		</div>
@@ -42,6 +43,32 @@ const { show } = useAlert();
 
 const instances = ref([]);
 const isLoading = ref(false);
+
+const cpus = ref([]);
+const rams = ref([]);
+const storages = ref([]);
+const regions = ref([]);
+
+const fetchOptions = async () => {
+	try {
+		const cpuResp = await api.get('/api/cpus').catch(() => ({ data: [] }));
+		const ramResp = await api.get('/api/rams').catch(() => ({ data: [] }));
+		const storageResp = await api.get('/api/storages').catch(() => ({ data: [] }));
+		const regionResp = await api.get('/api/regions').catch(() => ({ data: [] }));
+		
+		cpus.value = Array.isArray(cpuResp.data) ? cpuResp.data : [];
+		rams.value = Array.isArray(ramResp.data) ? ramResp.data : [];
+		storages.value = Array.isArray(storageResp.data) ? storageResp.data : [];
+		regions.value = Array.isArray(regionResp.data) ? regionResp.data : [];
+	} catch (error_) {
+		console.error('Error fetching options', error_);
+	}
+};
+
+const findLabel = (items, id, valueKey = 'id', labelKey = 'name') => {
+	const match = items.find((item) => String(item[valueKey]) === String(id));
+	return match ? match[labelKey] : id;
+};
 
 const readStoredUser = () => {
 	try {
@@ -78,16 +105,23 @@ const fetchCurrentUser = async () => {
 	return null;
 };
 
-const toViewInstance = (raw) => ({
-	id: raw?.instance_id ?? raw?.Instance_id ?? raw?.id,
-	name: raw?.name ?? raw?.Name ?? '-',
-	region: raw?.region ?? raw?.Region ?? raw?.region_id ?? raw?.Region_id ?? '-',
-	ip: raw?.ip ?? raw?.Ip_address ?? '-',
-	state: raw?.state ?? raw?.State ?? '-',
-	cpu: raw?.cpu ?? raw?.Cpu_id ?? '-',
-	ram: raw?.ram ?? raw?.Ram_id ?? '-',
-	storage: raw?.storage ?? raw?.Storage_id ?? '-',
-});
+const toViewInstance = (raw) => {
+	const cpuId = raw?.cpu ?? raw?.cpu_id ?? raw?.Cpu_id;
+	const ramId = raw?.ram ?? raw?.ram_id ?? raw?.Ram_id;
+	const storageId = raw?.storage ?? raw?.storage_id ?? raw?.Storage_id;
+	const regionId = raw?.region ?? raw?.region_id ?? raw?.Region_id;
+
+	return {
+		id: raw?.instance_id ?? raw?.Instance_id ?? raw?.id,
+		name: raw?.name ?? raw?.Name ?? '-',
+		region: findLabel(regions.value, regionId, 'region_id', 'name') || regionId || '-',
+		ip: raw?.ip ?? raw?.ip_address ?? raw?.Ip_address ?? '-',
+		state: raw?.state ?? raw?.State ?? '-',
+		cpu: (findLabel(cpus.value, cpuId, 'cpu_id', 'quantity') || cpuId || '-') + ' vCPU',
+		ram: (findLabel(rams.value, ramId, 'ram_id', 'quantity') || ramId || '-') + ' GB',
+		storage: (findLabel(storages.value, storageId, 'storage_id', 'quantity') || storageId || '-') + ' GB',
+	};
+};
 
 const viewInstances = computed(() => instances.value.map(toViewInstance));
 
@@ -142,7 +176,10 @@ const fetchInstances = async () => {
 	}
 };
 
-onMounted(fetchInstances);
+onMounted(async () => {
+    await fetchOptions();
+    fetchInstances();
+});
 </script>
 
 <style scoped>
@@ -183,7 +220,7 @@ onMounted(fetchInstances);
 
 .table-header {
 	display: grid;
-	grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+	grid-template-columns: 5% 15% 15% 10% 10% 7% 7% 7%;
 	gap: 4px;
 	padding: 8px 0;
 	margin-bottom: 8px;
@@ -193,6 +230,7 @@ onMounted(fetchInstances);
 	text-transform: uppercase;
 	font-size: 12px;
 	letter-spacing: 0.04em;
+	align-items: center;
 }
 
 .table-cell {

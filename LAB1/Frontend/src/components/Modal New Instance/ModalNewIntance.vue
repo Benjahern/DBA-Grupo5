@@ -18,8 +18,8 @@
 							<span>Region</span>
 							<select v-model="regionId">
 								<option value="">Selecciona Region</option>
-								<option v-for="region in regions" :key="region.Region_id" :value="region.Region_id">
-									{{ region.Name }}
+								<option v-for="region in regions" :key="region.region_id" :value="region.region_id">
+									{{ region.name }}
 								</option>
 							</select>
 						</label>
@@ -28,8 +28,8 @@
 							<span>CPU</span>
 							<select v-model="cpuId">
 								<option value="">Selecciona CPU</option>
-								<option v-for="cpu in cpus" :key="cpu.Cpu_id" :value="cpu.Cpu_id">
-									{{ cpu.Quantity }} vCPU
+								<option v-for="cpu in cpus" :key="cpu.cpu_id" :value="cpu.cpu_id">
+									{{ cpu.quantity }} vCPU
 								</option>
 							</select>
 						</label>
@@ -38,8 +38,8 @@
 							<span>RAM</span>
 							<select v-model="ramId">
 								<option value="">Selecciona RAM</option>
-								<option v-for="ram in rams" :key="ram.Ram_id" :value="ram.Ram_id">
-									{{ ram.Quantity }} GB
+								<option v-for="ram in rams" :key="ram.ram_id" :value="ram.ram_id">
+									{{ ram.quantity }} GB
 								</option>
 							</select>
 						</label>
@@ -48,8 +48,8 @@
 							<span>Almacenamiento</span>
 							<select v-model="storageId">
 								<option value="">Selecciona Almacenamiento</option>
-								<option v-for="storage in storages" :key="storage.Storage_id" :value="storage.Storage_id">
-									{{ storage.Quantity }} GB
+								<option v-for="storage in storages" :key="storage.storage_id" :value="storage.storage_id">
+									{{ storage.quantity }} GB
 								</option>
 							</select>
 						</label>
@@ -93,42 +93,38 @@ const regions = ref([]);
 const confirmOpen = ref(false);
 const isSubmitting = ref(false);
 
-const findLabel = (items, id, valueKey = 'id', labelKey = 'Name') => {
+const findLabel = (items, id, valueKey = 'id', labelKey = 'name') => {
 	const match = items.find((item) => String(item[valueKey]) === String(id));
 	return match ? match[labelKey] : '';
 };
 
 const confirmSummary = computed(() => ({
 	name: name.value,
-	region: findLabel(regions.value, regionId.value, 'Region_id', 'Name'),
-	cpu: findLabel(cpus.value, cpuId.value, 'Cpu_id', 'Quantity')
-		? `${findLabel(cpus.value, cpuId.value, 'Cpu_id', 'Quantity')} vCPU`
+	region: findLabel(regions.value, regionId.value, 'region_id', 'name'),
+	cpu: findLabel(cpus.value, cpuId.value, 'cpu_id', 'quantity')
+		? `${findLabel(cpus.value, cpuId.value, 'cpu_id', 'quantity')} vCPU`
 		: '',
-	ram: findLabel(rams.value, ramId.value, 'Ram_id', 'Quantity')
-		? `${findLabel(rams.value, ramId.value, 'Ram_id', 'Quantity')} GB`
+	ram: findLabel(rams.value, ramId.value, 'ram_id', 'quantity')
+		? `${findLabel(rams.value, ramId.value, 'ram_id', 'quantity')} GB`
 		: '',
-	storage: findLabel(storages.value, storageId.value, 'Storage_id', 'Quantity')
-		? `${findLabel(storages.value, storageId.value, 'Storage_id', 'Quantity')} GB`
+	storage: findLabel(storages.value, storageId.value, 'storage_id', 'quantity')
+		? `${findLabel(storages.value, storageId.value, 'storage_id', 'quantity')} GB`
 		: ''
 }));
 
 const fetchOptions = async () => {
 	try {
-		const [cpuResp, ramResp, storageResp, regionResp] = await Promise.all([
-			api.get('/api/cpus'),
-			api.get('/api/rams'),
-			api.get('/api/storages'),
-			api.get('/api/regions'),
-		]);
+		const cpuResp = await api.get('/api/cpus').catch(() => ({ data: [] }));
+		const ramResp = await api.get('/api/rams').catch(() => ({ data: [] }));
+		const storageResp = await api.get('/api/storages').catch(() => ({ data: [] }));
+		const regionResp = await api.get('/api/regions').catch(() => ({ data: [] }));
+		
 		cpus.value = Array.isArray(cpuResp.data) ? cpuResp.data : [];
 		rams.value = Array.isArray(ramResp.data) ? ramResp.data : [];
 		storages.value = Array.isArray(storageResp.data) ? storageResp.data : [];
 		regions.value = Array.isArray(regionResp.data) ? regionResp.data : [];
 	} catch (error_) {
-		cpus.value = [];
-		rams.value = [];
-		storages.value = [];
-		regions.value = [];
+		console.error('Error fetching options', error_);
 	}
 };
 

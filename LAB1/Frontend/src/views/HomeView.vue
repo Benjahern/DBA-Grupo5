@@ -1,42 +1,15 @@
 <template>
   <div class="home-container">
     <header class="hero">
-      <h1>Bienvenido, {{ userName }}</h1>
-      <p>Esta es la página principal (HomeView). El enrutador está funcionando correctamente.</p>
+      <h1>¡Bienvenido, {{ userName }}!</h1>
+      <p>Administra tus instancias ahora.</p>
     
 
       <div>
         <Dashboard>
         </Dashboard>
-                  <InstanceContainer
-          :instance="{
-            id: 1,
-            name: 'Instancia 1',
-            region: 'us-east-1',
-            ip: '111.111.111',
-            state: 'terminated',
-            cpu: '4 vCPU',
-            ram: '16 GB',
-            storage: '100 GB'
-          }"
-        />
       </div>
     </header>
-
-    <section class="features-grid">
-      <div class="card">
-        <h3>⚡ Vue 3 & Vite</h3>
-        <p>Renderizado ultrarrápido usando la Composition API.</p>
-      </div>
-      <div class="card">
-        <h3>🛡️ TypeScript</h3>
-        <p>Código más seguro y autocompletado inteligente en el editor.</p>
-      </div>
-      <div class="card">
-        <h3>🧩 Componentes</h3>
-        <p>Arquitectura modular y escalable para trabajar en equipo.</p>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -83,16 +56,20 @@ const triggerWelcomeAlert = () => {
 <style scoped>
 /* Scoped asegura que estos estilos SOLO afecten a HomeView */
 .home-container {
+  align-content: center;
   max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 90%;
+  margin: 0 auto; 
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   text-align: center;
+  padding-top: 2rem;
 }
 
 .hero {
+  align-content: center;
+  width: 110%;
   margin-bottom: 4rem;
-  padding: 3rem;
+  padding: 2rem;
   background-color: #f8f9fa;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.05);

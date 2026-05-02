@@ -3,7 +3,7 @@
         + Crear Instancias
     </button>
 
-    <ModalNewIntance v-if="isOpen" @close="isOpen = false" />
+    <ModalNewIntance v-if="isOpen" @close="isOpen = false" @confirm="handleConfirm" />
 </template>
 
 <script setup>
@@ -11,9 +11,14 @@ import { ref } from 'vue';
 import ModalNewIntance from '../Modal New Instance/ModalNewIntance.vue';
 
 const isOpen = ref(false);
+const emit = defineEmits(['created']);
 
 const handleClick = () => {
     isOpen.value = true;
+};
+
+const handleConfirm = () => {
+    emit('created');
 };
 </script>
 

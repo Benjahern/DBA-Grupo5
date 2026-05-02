@@ -4,7 +4,6 @@
       <div>
         <p class="eyebrow">Instancia</p>
         <h1>Estadisticas en vivo</h1>
-        <p class="sub">ID: {{ instanceId }}</p>
       </div>
       <button class="back-btn" @click="goBack">Volver</button>
     </header>
@@ -64,72 +63,9 @@ const cpu = ref(0);
 const memory = ref(0);
 const storage = ref(0);
 const isConnected = ref(false);
-const { show } = useAlert();
+const { show } = useAlert();                                                                                                                                                                                                                            
 
 let streamController;
-
-const clampPercent = (value) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return Math.max(0, Math.min(100, parsed));
-};
-
-const parsePercent = (value) => {
-  if (!value) return 0;
-  const normalized = String(value).replace('%', '').replace(',', '.');
-  return clampPercent(parseFloat(normalized));
-};
-
-const parseBytes = (value) => {
-  if (!value) return 0;
-  const match = String(value).trim().match(/^([0-9]*\.?[0-9]+)\s*([a-zA-Z]+)$/);
-  if (!match) return 0;
-  const amount = parseFloat(match[1]);
-  if (!Number.isFinite(amount)) return 0;
-  const unit = match[2].toLowerCase();
-
-  const table = {
-    b: 1,
-    kb: 1000,
-    kib: 1024,
-    mb: 1000 ** 2,
-    mib: 1024 ** 2,
-    gb: 1000 ** 3,
-    gib: 1024 ** 3,
-    tb: 1000 ** 4,
-    tib: 1024 ** 4,
-  };
-
-  return amount * (table[unit] || 1);
-};
-
-const parseBlockIoPercent = (value) => {
-  if (!value) return 0;
-  const parts = String(value).split('/').map((part) => part.trim());
-  if (parts.length < 2) return 0;
-  const readBytes = parseBytes(parts[0]);
-  const writeBytes = parseBytes(parts[1]);
-  const total = readBytes + writeBytes;
-  if (!total) return 0;
-  return clampPercent((writeBytes / total) * 100);
-};
-
-const updateStatsFromLine = (line) => {
-  if (!line) return;
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.toUpperCase().startsWith('CONTAINER')) return;
-
-  const parts = trimmed.split(/\s{2,}/);
-  if (parts.length < 5) return;
-
-  const cpuValue = parts[2];
-  const memPercent = parts[4];
-  const blockIo = parts[6];
-
-  cpu.value = parsePercent(cpuValue);
-  memory.value = parsePercent(memPercent);
-  storage.value = parseBlockIoPercent(blockIo);
-};
 
 const startStatsStream = () => {
   if (!instanceId) {
@@ -143,8 +79,10 @@ const startStatsStream = () => {
 
   isConnected.value = false;
   streamController = openInstanceStatsStream(instanceId, {
-    onLine: (line) => {
-      updateStatsFromLine(line);
+    onStats: (stats) => {
+      cpu.value = stats.cpu;
+      memory.value = stats.memory;
+      storage.value = stats.storage;
       isConnected.value = true;
     },
     onConnected: () => {
@@ -178,7 +116,7 @@ onBeforeUnmount(() => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap');
 
-:root {
+.stats-page {
   --paper: #f8fafc;
   --ink: #0f172a;
   --muted: #64748b;
@@ -186,9 +124,7 @@ onBeforeUnmount(() => {
   --accent-strong: #0f766e;
   --gold: #f59e0b;
   --berry: #ef4444;
-}
 
-.stats-page {
   min-height: 100vh;
   padding: 32px;
   background: radial-gradient(circle at top left, #e2f1ff 0%, #f8fafc 45%, #fff7ed 100%);
