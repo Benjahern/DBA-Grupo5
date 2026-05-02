@@ -16,20 +16,11 @@
 <script setup>
 // Importamos el hook que creó Mharko. 
 // Ajusta la ruta dependiendo de dónde pusiste la carpeta Components
-import { useAlert } from '../components/Alerts/useAlert';
 
-// Importamos el componente RunButton
-import RunButton from '../components/Instance Actions Buttons/RunButton.vue';
-import PauseButton from '../components/Instance Actions Buttons/PauseButton.vue';
-import DeleteButton from '../components/Instance Actions Buttons/DeleteButton.vue';
-import InstanceContainer from '../components/Instance Container/InstanceContainer.vue';
 import Dashboard from '@/components/Instance Container/Dashboard.vue';
 
 import { computed } from 'vue';
 import { getUser } from '../services/auth.js';
-
-// Extraemos la función para mostrar la alerta
-const { show } = useAlert()
 
 const userName = computed(() => {
   try {
@@ -43,14 +34,6 @@ const userName = computed(() => {
   return tokenUser?.given_name || tokenUser?.name || tokenUser?.preferred_username || tokenUser?.email || 'Usuario';
 });
 
-// Función que se ejecuta al hacer clic en el botón
-const triggerWelcomeAlert = () => {
-  show({
-    message: '¡Excelente! La vista se comunicó con el componente global.',
-    severity: 'success',
-    autoHideMs: 4000
-  })
-}
 </script>
 
 <style scoped>

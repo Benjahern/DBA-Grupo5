@@ -73,7 +73,7 @@ const handleUpdated = (nextState) => {
 
 .instance-container p {
     margin: 0;
-    aling-content: center;
+    align-content: center;
 }
 
 .status-cell {
