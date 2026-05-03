@@ -117,7 +117,7 @@ const saveRegion = async () => {
   isSaving.value = true;
   try {
     if (isEditing.value) {
-      await api.put(`/api/regions/${currentRegion.value.id}`, { Name: currentRegion.value.name });
+      await api.put(`/api/regions/${currentRegion.value.id}`, { region_id: currentRegion.value.id, Name: currentRegion.value.name });
       show({ message: 'Región actualizada exitosamente', severity: 'success', autoHideMs: 4000 });
     } else {
       await api.post('/api/regions', { Name: currentRegion.value.name });

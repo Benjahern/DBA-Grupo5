@@ -22,7 +22,7 @@ public class RegionRepository {
     }
 
     public Region save(Region region) {
-        String sql = "INSERT INTO \"Region\" (\"Name\") VALUES = ?";
+        String sql = "INSERT INTO \"Region\" (\"Name\") VALUES (?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
@@ -31,15 +31,18 @@ public class RegionRepository {
             return ps;
         }, keyHolder);
 
-        if (keyHolder.getKey() != null) {
-            region.setRegion_id(keyHolder.getKey().longValue());
+        if (keyHolder.getKeys() != null && !keyHolder.getKeys().isEmpty()) {
+            Object key = keyHolder.getKeys().values().iterator().next();
+            if (key instanceof Number) {
+                region.setRegion_id(((Number) key).longValue());
+            }
         }
 
         return region;
     }
 
     public Optional<Region> findById(Long id) {
-        String sql = "SELECT * FROM \"Ram\" WHERE \"Region_id\" = ?";
+        String sql = "SELECT * FROM \"Region\" WHERE \"Region_id\" = ?";
 
         try {
             Region region = jdbcTemplate.queryForObject(sql, (rs, rowNum) ->
