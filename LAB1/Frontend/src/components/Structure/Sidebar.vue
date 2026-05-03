@@ -26,7 +26,7 @@
         </transition>
       </div>
 
-      <div v-if="userRole === 'SysAdmin'" class="nav-group admin-panel" :class="{ 'is-open': openGroups.admin && !isCollapsed }">
+      <div v-if="userRole === 'admin'" class="nav-group admin-panel" :class="{ 'is-open': openGroups.admin && !isCollapsed }">
         <div class="nav-title" @click="toggleGroup('admin')" title="Administración">
           <span class="icon">🛡️</span>
           <span v-if="!isCollapsed" class="text">Administración</span>
@@ -36,6 +36,9 @@
           <ul v-if="openGroups.admin && !isCollapsed" class="nav-list">
             <li :class="{ 'active-item': activeSection === 'usuarios' }" @click="selectSection('usuarios')">
               Gestionar Usuarios
+            </li>
+            <li :class="{ 'active-item': activeSection === 'todas-instancias' }" @click="goToAdminInstances">
+              Todas las Instancias
             </li>
           </ul>
         </transition>
@@ -63,16 +66,17 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 const props = defineProps({
-  userRole: { type: String, default: 'SysAdmin' },
+  userRole: { type: String, default: 'admin' },
   userName: { type: String, default: 'Admin User' },
   activeSection: { type: String, default: 'servidor' }
 });
 
 const emit = defineEmits(['update:section', 'logout']);
 const route = useRoute();
+const router = useRouter();
 const isCollapsed = ref(false);
 
 const openGroups = reactive({
@@ -103,6 +107,10 @@ const toggleGroup = (group: 'infra' | 'admin') => {
 
 const selectSection = (section: string) => {
   emit('update:section', section);
+};
+
+const goToAdminInstances = () => {
+  router.push({ name: 'admin-instances' });
 };
 
 const getIcon = (item: string) => {

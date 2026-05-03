@@ -27,7 +27,12 @@ const resolveUserName = () => {
 
 const resolveUserRole = () => {
   const stored = readStoredUser();
-  return stored?.role || 'Usuario';
+  if (stored?.role) return stored.role;
+  // Try to extract from JWT token's realm_access.roles
+  const tokenUser = getUser();
+  const roles = tokenUser?.realm_access?.roles || tokenUser?.roles || [];
+  if (Array.isArray(roles) && roles.includes('admin')) return 'admin';
+  return 'Usuario';
 };
 
 const fetchCurrentUser = async () => {

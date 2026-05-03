@@ -180,7 +180,7 @@ const submit = async () => {
     
     show({ message: `¡Bienvenido ${name}! Cuenta creada exitosamente`, severity: 'success', autoHideMs: 3500 });
     
-    setTimeout(() => { router.push('/'); }, 500);
+    setTimeout(() => { router.push('/home'); }, 500);
     
   } catch (err) {
     console.error(err);

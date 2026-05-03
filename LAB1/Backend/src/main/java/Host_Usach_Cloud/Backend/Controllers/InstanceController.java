@@ -5,6 +5,7 @@ import Host_Usach_Cloud.Backend.Services.InstanceService;
 import com.github.dockerjava.api.model.Statistics;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,6 +67,7 @@ public class InstanceController {
         } else if (state != null) {
             instances = instanceService.getInstancesByState(state);
         } else {
+            // Only admin can see all instances without a userId filter
             instances = instanceService.getAllInstances();
         }
 

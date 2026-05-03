@@ -5,11 +5,13 @@ import Register from '../views/Register.vue';
 import Home from '../views/HomeView.vue';
 import InstanceStats from '../views/InstanceStats.vue';
 import NotFound from '../views/NotFound.vue';
+import AdminAllInstances from '../views/AdminAllInstances.vue';
 import { getToken } from '../services/auth.js';
 
 const routes = [
   { path: '/', name: 'landing', component: LandingPage, meta: { title: 'Host Cloud Usach' } },
   { path: '/home', name: 'home', component: Home, meta: { title: 'Inicio', requiresAuth: true } },
+  { path: '/admin/instances', name: 'admin-instances', component: AdminAllInstances, meta: { title: 'Admin - Todas las Instancias', requiresAuth: true } },
   { path: '/instances/:id/stats', name: 'instance-stats', component: InstanceStats, meta: { title: 'Estadisticas', requiresAuth: true } },
   { path: '/login', name: 'login', component: Login, meta: { title: 'Iniciar Sesión' } },
   { path: '/register', name: 'register', component: Register, meta: { title: 'Registrarse' } },

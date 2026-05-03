@@ -12,7 +12,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 // Importamos el hook useRouter para poder navegar desde el código (programáticamente)
 import { useRouter } from 'vue-router'
 
