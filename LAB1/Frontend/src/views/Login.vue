@@ -1,46 +1,50 @@
 <template>
-  <div class="login-page">
-    
-    <main class="login-main">
-      <div class="form-card">
-        <h2 class="form-title">Iniciar sesión</h2>
-        <p class="form-sub">Ingresa con tu email</p>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <h2 class="title">ACCEDA A SU CUENTA</h2>
 
-        <form @submit.prevent="submit" class="form-grid">
-          
+      <form @submit.prevent="submit" class="form-grid">
+        <div class="input-row">
           <div class="input-group">
-            <label for="login-identifier">Email</label>
-            <div class="input-with-icon">
-              <span class="icon" aria-hidden>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l9 6 9-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </span>
-              <input id="login-identifier" v-model="identifier" placeholder="usuario o email" required />
+            <label for="login-identifier">Correo electrónico</label>
+            <div class="input-container">
+              <input 
+                id="login-identifier" 
+                type="text" 
+                placeholder="Correo electrónico" 
+                v-model="identifier"
+                required
+              />
+              <span class="icon">👤</span>
             </div>
           </div>
 
           <div class="input-group">
             <label for="login-password">Contraseña</label>
-            <div class="input-with-icon">
-              <span class="icon" aria-hidden>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </span>
-              <input id="login-password" type="password" v-model="password" placeholder="tu contraseña" required />
+            <div class="input-container">
+              <input 
+                id="login-password" 
+                type="password" 
+                placeholder="Contraseña" 
+                v-model="password"
+                required
+              />
+              <span class="icon">🔒</span>
             </div>
           </div>
-
-          <div class="actions">
-            <button class="primary-cta" type="submit" :disabled="loading" style="width: 100%; justify-content: center">
-              {{ loading ? 'Entrando...' : 'Ingresar' }}
-            </button>
-            <button type="button" class="link" style="width: 100%; justify-content: center" @click="goToRegister">
-              Crear cuenta
-            </button>
-          </div>
-        </form>
-
-        <div v-if="msg" class="form-message" style="white-space: pre-wrap;">{{ msg }}</div>
-      </div>
-    </main>
+        </div>
+        
+        <div class="actions">
+          <button type="submit" class="btn-acceder">
+            {{ loading ? 'Entrando...' : 'Ingresar' }}
+          </button>
+          <button type="submit" class="btn-acceder" style="justify-content: center" @click="goToRegister">
+            Crear cuenta
+          </button>
+        </div>
+      </form>
+      <div v-if="msg" class="form-message" style="white-space: pre-wrap;">{{ msg }}</div>
+    </div>
   </div>
 </template>
 
@@ -139,24 +143,101 @@ const submit = async () => {
 </script>
 
 <style scoped>
-
-.login-page {
-  background-color: #f9fafb; 
+/* Contenedor principal para centrar la tarjeta */
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
+  background-color: #f4f4f4; /* Color de fondo general de la página */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.login-main {
-  padding: 0 24px;
-  padding-top: 40px; 
+/* Tarjeta de Login */
+.login-card {
+  background-color: #3b424d; /* Color azul/gris oscuro de la imagen */
+  padding: 5% 6%;
+  border-radius: 0.4rem;
+  box-shadow: 0 0.4rem 1rem rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 90vw;
+  color: white;
 }
 
-.form-card {
-  margin: 0 auto; 
-  max-width: 450px; 
-  
-  background-color: #ffffff;
-  padding: 32px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* Título */
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 3%;
+  letter-spacing: 0.5px;
+}
+
+/* Fila de inputs (Grid de 2 columnas) */
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5%;
+  margin-bottom: 3%;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  margin-bottom: 1.2%;
+}
+
+/* Contenedor del input y el ícono */
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border-radius: 0.2rem;
+}
+
+.input-container input {
+  width: 100%;
+  padding: 2.5% 2%;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  color: #333;
+  outline: none;
+}
+
+.input-container .icon {
+  padding: 0 2%;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Botones y Checkbox inferior */
+.btn-acceder {
+  background-color: white;
+  color: #555;
+  border: none;
+  padding: 12px 30px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 2px;
+  margin-bottom: 20px;
+  transition: background-color 0.2s;
+}
+
+.btn-acceder:hover {
+  background-color: #f0f0f0;
+}
+
+/* Responsividad para pantallas pequeñas */
+@media (max-width: 600px) {
+  .input-row {
+    grid-template-columns: 1fr; /* Cambia a 1 columna en móviles */
+  }
 }
 </style>

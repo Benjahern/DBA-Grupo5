@@ -66,7 +66,10 @@ public class InstanceService {
             // Recomendado por la ia para identificar
             String containerName = name + "-" + userId + "-" + UUID.randomUUID().toString().substring(0,5);
 
-            //Mandamos el mensaje a docker
+            // Asegurar que la imagen existe (pull si no existe)
+            ensureImageExists(baseImage);
+
+            // Mandamos el mensaje a docker
             // IMPORTANTE: Un contenedor ubuntu:latest por defecto corre un shell y sale inmediatamente si no se le pasa un comando continuo
             // Usaremos "tail -f /dev/null" o "sleep infinity" para que se quede corriendo
             container = dockerClient.createContainerCmd(baseImage)
@@ -207,9 +210,14 @@ public class InstanceService {
                 // If it is already stopped, docker normally throws NotModifiedException.
                 System.out.println("Contenedor ya estaba detenido o no se pudo detener: " + e.getMessage());
             }
-            dockerClient.removeContainerCmd(instance.getContainer_id()).withForce(true).exec();
+            try {
+                dockerClient.removeContainerCmd(instance.getContainer_id()).withForce(true).exec();
+            } catch (Exception e) {
+                // If container doesn't exist (already deleted), continue
+                System.out.println("Contenedor no existe o ya fue eliminado: " + e.getMessage());
+            }
 
-            // Actualizar el estado y marcar como terminado. 
+            // Actualizar el estado y marcar como terminado.
             // El trigger liberará la IP, sumará el tiempo final a Active_hours y limpiará Started_at
             instance.setState("Terminated");
             instance.setTerminated(true);
@@ -250,5 +258,14 @@ public class InstanceService {
         }
 
         return null;
+    }
+
+    private void ensureImageExists(String imageName) {
+        try {
+            dockerClient.inspectImageCmd(imageName).exec();
+        } catch (Exception e) {
+            System.out.println("Imagen no encontrada, haciendo pull: " + imageName);
+            dockerClient.pullImageCmd(imageName).start();
+        }
     }
 }

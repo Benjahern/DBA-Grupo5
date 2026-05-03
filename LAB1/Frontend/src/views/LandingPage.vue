@@ -107,21 +107,15 @@
 
     <!-- Info Section -->
     <section class="info-section">
-      <div class="container">
-        <div class="row align-items-center">
-          <div class="col-lg-6 order-lg-2">
-            <h2>Gestión Integral de Recursos</h2>
-            <p class="lead">Administra CPUs, memoria RAM, almacenamiento y ancho de banda desde un único panel de control.</p>
-            <ul class="feature-list">
-              <li><i class="bi bi-check-circle"></i> Creación y eliminación de instancias</li>
-              <li><i class="bi bi-check-circle"></i> Inicio, detención y reinicio de servicios</li>
-              <li><i class="bi bi-check-circle"></i> Asignación automática de direcciones IP</li>
-              <li><i class="bi bi-check-circle"></i> Tracking de consumo por usuario</li>
-            </ul>
-          </div>
-          <div class="col-lg-6 order-lg-1 mt-4 mt-lg-0">
-          </div>
-        </div>
+      <div class="container text-center">
+        <h2>Gestión Integral de Recursos</h2>
+        <p class="lead">Administra CPUs, memoria RAM, almacenamiento y ancho de banda desde un único panel de control.</p>
+        <ul class="feature-list text-start d-inline-block">
+          <li><i class="bi bi-check-circle"></i> Creación y eliminación de instancias</li>
+          <li><i class="bi bi-check-circle"></i> Inicio, detención y reinicio de servicios</li>
+          <li><i class="bi bi-check-circle"></i> Asignación automática de direcciones IP</li>
+          <li><i class="bi bi-check-circle"></i> Tracking de consumo por usuario</li>
+        </ul>
       </div>
     </section>
 
@@ -135,11 +129,10 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue';
+<script setup>
 
 // Logo de la Usach
-const usachLogo = '/usach-logo.png';
+import usachLogo from '../../public/usach-logo2.png';
 </script>
 
 <style scoped>
@@ -329,6 +322,8 @@ const usachLogo = '/usach-logo.png';
   font-weight: 700;
   color: #ffffff;
   margin-bottom: 1.5rem;
+  align-items: center;
+
 }
 
 .info-section .lead {

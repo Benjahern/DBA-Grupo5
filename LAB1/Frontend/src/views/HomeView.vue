@@ -21,6 +21,7 @@ import Dashboard from '@/components/Instance Container/Dashboard.vue';
 
 import { computed } from 'vue';
 import { getUser } from '../services/auth.js';
+import Badge from '@/components/Badges/Badge.vue';
 
 const userName = computed(() => {
   try {

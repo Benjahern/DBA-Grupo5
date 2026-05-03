@@ -1,4 +1,3 @@
-// Utility to map instance state to Badge variant name.
 export function statusToBadgeVariant(status) {
   const s = (status == null) ? '' : String(status).toLowerCase().trim();
 
@@ -6,7 +5,7 @@ export function statusToBadgeVariant(status) {
   if (s === 'stopped') return 'stopped';
   if (s === 'terminated') return 'terminated';
 
-  return undefined;
+  return 'stopped';
 }
 
 export default statusToBadgeVariant;

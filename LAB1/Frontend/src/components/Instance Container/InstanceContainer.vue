@@ -1,7 +1,7 @@
 <template>
     <div class="instance-container">
         <div class="status-cell">
-            <Badge v-if="badgeVariant" :variant="badgeVariant" :title="localState" />
+            <Badge :variant="badgeVariant || 'stopped'" :title="localState" />
         </div>
         <p> {{ instance.name }}</p>
         <p> {{ instance.region }}</p>

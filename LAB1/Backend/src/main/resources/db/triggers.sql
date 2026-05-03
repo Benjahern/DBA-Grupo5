@@ -35,9 +35,13 @@ EXECUTE FUNCTION check_user_quota();
 CREATE OR REPLACE FUNCTION release_instance_ip()
 RETURNS TRIGGER AS $$
 BEGIN
-    
+
     -- Manejo para eliminación lógica a través de actualización de estado
     IF TG_OP = 'UPDATE' AND NEW."Terminated" = TRUE AND OLD."Terminated" = FALSE THEN
+        -- Marcar la IP como no asignada en la tabla Ip
+        IF OLD."Ip_address" IS NOT NULL THEN
+            UPDATE "Ip" SET "Assigned" = FALSE WHERE "Ip_address" = OLD."Ip_address";
+        END IF;
         NEW."Ip_address" := NULL;
     END IF;
 
