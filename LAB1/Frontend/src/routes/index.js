@@ -10,6 +10,7 @@ import AdminCosts from '../views/AdminCosts.vue';
 import { getToken } from '../services/auth.js';
 import Cost from '../views/IntanceTicket.vue';
 import Regions from '../views/MaterializedView.vue';
+import RegionsManagement from "../views/RegionsCrud.vue";
 
 const routes = [
   { path: '/', name: 'landing', component: LandingPage, meta: { title: 'Host Cloud Usach' } },
@@ -21,7 +22,8 @@ const routes = [
   { path: '/register', name: 'register', component: Register, meta: { title: 'Registrarse' } },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound, meta: { title: 'Página No Encontrada' } },
   { path: '/cost', name: 'cost', component: Cost, meta: { title: 'Costos', requiresAuth: true } },
-  { path: '/regions', name: 'regions', component: Regions, meta: {title: 'Regiones', requiresAuth: true} }
+  { path: '/regions', name: 'regions', component: Regions, meta: {title: 'Regiones', requiresAuth: true} },
+  { path: '/regions/management', name: 'regions-management', component: RegionsManagement, meta: {title: 'Gestión de Regiones', requiresAuth: true} }
 ];
 
 const router = createRouter({

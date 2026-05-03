@@ -1,70 +1,24 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import Sidebar from './components/Structure/Sidebar.vue';
 import TransitionAlert from './components/Alerts/TransitionAlert.vue';
 import router from './routes/index.js';
-import api from './services/http-common.js';
-import { clearSession, getToken, getUser, subscribe } from './services/auth.js';
+import { clearSession, getToken, getUser } from './services/auth.js';
 
-const sessionName = ref('Usuario');
-const sessionRole = ref('Usuario');
-
-const readStoredUser = () => {
-  try {
-    const raw = localStorage.getItem('user');
-    return raw ? JSON.parse(raw) : null;
-  } catch (error_) {
-    return null;
-  }
-};
-
-const resolveUserName = () => {
-  const stored = readStoredUser();
-  if (stored?.name) return stored.name;
-  const tokenUser = getUser();
-  return tokenUser?.given_name || tokenUser?.name || tokenUser?.preferred_username || tokenUser?.email || 'Usuario';
-};
-
-const resolveUserRole = () => {
-  const stored = readStoredUser();
-  if (stored?.role) return stored.role;
-  // Try to extract from JWT token's realm_access.roles
-  const tokenUser = getUser();
-  const roles = tokenUser?.realm_access?.roles || tokenUser?.roles || [];
-  if (Array.isArray(roles) && roles.includes('admin')) return 'admin';
-  return 'Usuario';
-};
-
-const fetchCurrentUser = async () => {
-  try {
-    const response = await api.get('/api/users/me');
-    if (response?.data) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-    }
-  } catch (error_) {
-    // ignore
-  }
-};
-
-const refreshSession = async () => {
-  const stored = readStoredUser();
-  if (!stored && getToken()) {
-    await fetchCurrentUser();
-  }
-  sessionName.value = resolveUserName();
-  sessionRole.value = resolveUserRole();
-};
+// Nombre desde token
+const userName = computed(() => {
+  const user = getUser();
+  return user?.given_name 
+      || user?.name 
+      || user?.preferred_username 
+      || user?.email 
+      || 'Usuario';
+});
 
 const handleLogout = () => {
-  console.log("Eliminando token y cerrando sesión...");
   clearSession();
   router.push({ name: 'login' });
 };
-
-onMounted(() => {
-  refreshSession();
-  subscribe(() => { refreshSession(); });
-});
 
 const showSidebar = computed(() => {
   const isAuthenticated = !!getToken();
@@ -79,10 +33,7 @@ const showSidebar = computed(() => {
 
     <Sidebar
       v-if="showSidebar"
-      :user-name="sessionName"
-      :user-role="sessionRole"
-      :active-section="currentSection"
-      @update:section="handleSectionChange"
+      :user-name="userName"
       @logout="handleLogout"
     />
 
