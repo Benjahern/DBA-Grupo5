@@ -24,11 +24,11 @@
         
         <div v-else class="region-list">
           <div v-for="region in regions" :key="region.id" class="region-row">
-            <p>{{ region.id }}</p>
+            <p>{{ region.region_id }}</p>
             <p>{{ region.name }}</p>
             <div class="actions">
               <button class="btn edit-btn" @click="openEditModal(region)">Editar</button>
-              <button class="btn delete-btn" @click="deleteRegion(region.id)">Eliminar</button>
+              <button class="btn delete-btn" @click="deleteRegion(region.region_id)">Eliminar</button>
             </div>
           </div>
           <div v-if="regions.length === 0" class="empty-state">
@@ -117,7 +117,7 @@ const saveRegion = async () => {
   isSaving.value = true;
   try {
     if (isEditing.value) {
-      await api.put(`/api/regions/${currentRegion.value.id}`, { region_id: currentRegion.value.id, Name: currentRegion.value.name });
+      await api.put(`/api/regions/${currentRegion.value.region_id}`, { region_id: currentRegion.value.region_id, Name: currentRegion.value.name });
       show({ message: 'Región actualizada exitosamente', severity: 'success', autoHideMs: 4000 });
     } else {
       await api.post('/api/regions', { Name: currentRegion.value.name });
