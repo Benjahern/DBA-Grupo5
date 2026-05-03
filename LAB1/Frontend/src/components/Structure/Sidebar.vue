@@ -62,6 +62,13 @@
           <span v-if="!isCollapsed" class="text capitalize">Costes</span>
         </div>
       </div>
+
+      <div class="nav-group">
+        <div class="nav-title" @click="goToRegions" title="Regiones">
+          <span class="icon">🌍</span>
+          <span v-if="!isCollapsed" class="text capitalize">Regiones</span>
+        </div>
+      </div>
     </nav>
 
     <div class="user-footer">
@@ -141,6 +148,9 @@ const goToHome = () => {
   router.push({ name: 'home' });
 };
 
+const goToRegions = () => {
+  router.push({ name: 'regions' });
+};
 
 const getIcon = (item: string) => {
   const icons: any = { red: '🌐', seguridad: '🔒', gestion: '🛠️', costes: '📊' };
