@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import Sidebar from './components/Structure/Sidebar.vue';
 import TransitionAlert from './components/Alerts/TransitionAlert.vue';
 import router from './routes';
@@ -53,20 +53,27 @@ const refreshSession = async () => {
 const handleLogout = () => {
   console.log("Eliminando token y cerrando sesión...");
   clearSession();
-  router.push({ name: 'login' });  // Salta a la vista de Login usando el router
+  router.push({ name: 'login' });
 };
 
 onMounted(() => {
   refreshSession();
   subscribe(() => { refreshSession(); });
 });
+
+const showSidebar = computed(() => {
+  const isAuthenticated = !!getToken();
+  const isLandingPage = router.currentRoute.value.name === 'landing';
+  return isAuthenticated && !isLandingPage;
+});
 </script>
 
 <template>
   <div class="app-layout">
     <TransitionAlert />
-    
-    <Sidebar 
+
+    <Sidebar
+      v-if="showSidebar"
       :user-name="sessionName"
       :user-role="sessionRole"
       :active-section="currentSection"
@@ -74,14 +81,16 @@ onMounted(() => {
       @logout="handleLogout"
     />
 
-    <main class="main-content">
+    <main class="main-content" :class="{ 'no-sidebar': !showSidebar }">
       <router-view></router-view>
     </main>
   </div>
 </template>
 
 <style>
-*{
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap');
+
+* {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -89,7 +98,7 @@ onMounted(() => {
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f0f2f5; /* Un fondo gris muy suave */
+  background-color: #f0f2f5;
   color: #333;
 }
 
@@ -107,7 +116,6 @@ body {
   flex-direction: column;
 }
 
-/* Si no hay sidebar, aseguramos que el contenido use todo el espacio */
 .main-content.no-sidebar {
   width: 100%;
 }
