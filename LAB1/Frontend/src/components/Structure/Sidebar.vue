@@ -4,7 +4,9 @@
       <button class="toggle-btn" @click="toggleSidebar">
         ☰
       </button>
-      <span v-if="!isCollapsed" class="logo-text">USACH Cloud</span>
+      <button class="logo-text" @click="goToHome">
+        <span>USACH Cloud</span>
+      </button>
     </div>
     
     <nav class="sidebar-nav">
@@ -40,14 +42,24 @@
             <li :class="{ 'active-item': activeSection === 'todas-instancias' }" @click="goToAdminInstances">
               Todas las Instancias
             </li>
+            <li @click="goToAdminCost">
+              Todos los Costos
+            </li>
           </ul>
         </transition>
       </div>
 
-      <div class="nav-group" v-for="item in ['red', 'seguridad', 'gestion', 'costes']" :key="item">
+      <div class="nav-group" v-for="item in ['red', 'seguridad', 'gestion']" :key="item">
         <div class="nav-title" @click="selectSection(item)" :title="item">
           <span class="icon">{{ getIcon(item) }}</span>
           <span v-if="!isCollapsed" class="text capitalize">{{ item }}</span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title" @click="goToCost" title="Costes">
+          <span class="icon">📊</span>
+          <span v-if="!isCollapsed" class="text capitalize">Costes</span>
         </div>
       </div>
     </nav>
@@ -113,9 +125,27 @@ const goToAdminInstances = () => {
   router.push({ name: 'admin-instances' });
 };
 
+const goToCost = () => {
+  if (props.userRole === 'admin') {
+    router.push({ name: 'admin-cost' });
+  } else {
+    router.push({ name: 'cost' });
+  }
+};
+
+const goToAdminCost = () => {
+  router.push({ name: 'admin-cost' });
+};
+
+const goToHome = () => {
+  router.push({ name: 'home' });
+};
+
+
 const getIcon = (item: string) => {
   const icons: any = { red: '🌐', seguridad: '🔒', gestion: '🛠️', costes: '📊' };
   return icons[item];
+
 };
 </script>
 
@@ -123,7 +153,7 @@ const getIcon = (item: string) => {
 .sidebar {
   width: 250px;
   background-color: #2c3e50;
-  color: white;
+  color: rgb(255, 255, 255);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -147,7 +177,7 @@ const getIcon = (item: string) => {
 .toggle-btn {
   background: none;
   border: none;
-  color: white;
+  color: rgb(255, 255, 255);
   font-size: 20px;
   cursor: pointer;
   margin-right: 15px; /* Espacio con el texto USACH Cloud */
@@ -159,7 +189,10 @@ const getIcon = (item: string) => {
 .logo-text {
   font-size: 20px;
   font-weight: bold;
-  white-space: nowrap;
+  color: rgb(255, 255, 255);
+  background: none;
+  border: none;
+
 }
 
 .sidebar-nav {
@@ -211,18 +244,18 @@ const getIcon = (item: string) => {
 .nav-list li {
   padding: 12px 20px 12px 60px;
   font-size: 0.9rem;
-  color: #bdc3c7;
+  color: #ffffff;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .nav-list li:hover {
-  color: white;
+  color: rgb(255, 255, 255);
   background-color: #2c3e50;
 }
 
 .active-item {
-  color: #1abc9c !important;
+  color: #ffffff !important;
   font-weight: bold;
   background-color: rgba(26, 188, 156, 0.1);
 }
@@ -266,7 +299,7 @@ const getIcon = (item: string) => {
 
 .btn-logout:hover {
   background: #e74c3c;
-  color: white;
+  color: rgb(175, 28, 28);
 }
 
 .capitalize { text-transform: capitalize; }

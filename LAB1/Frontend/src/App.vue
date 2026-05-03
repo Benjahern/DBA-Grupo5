@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import Sidebar from './components/Structure/Sidebar.vue';
 import TransitionAlert from './components/Alerts/TransitionAlert.vue';
-import router from './routes';
+import router from './routes/index.js';
 import api from './services/http-common.js';
 import { clearSession, getToken, getUser, subscribe } from './services/auth.js';
 
