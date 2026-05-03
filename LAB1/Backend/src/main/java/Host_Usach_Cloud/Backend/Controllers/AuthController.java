@@ -3,6 +3,7 @@ package Host_Usach_Cloud.Backend.Controllers;
 import Host_Usach_Cloud.Backend.Controllers.DTO.LoginRequest;
 import Host_Usach_Cloud.Backend.Controllers.DTO.RegisterRequest;
 import Host_Usach_Cloud.Backend.Services.UserService;
+import Host_Usach_Cloud.Backend.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,6 +24,7 @@ import java.util.Map;
 public class AuthController {
 
     private final UserService userService;
+        private final UserRepository userRepository;
     private final WebClient.Builder webClientBuilder;
 
     @Value("${keycloak.server-url:http://keycloak:8080}")
@@ -64,7 +67,12 @@ public class AuthController {
                         .body(formData)
                 .retrieve()
                 .bodyToMono(Map.class)
-                .map(response -> ResponseEntity.ok((Object) response))
+                .map(response -> {
+                    Map<String, Object> body = new HashMap<>(response);
+                    userRepository.findByEmail(request.getEmail())
+                            .ifPresent(user -> body.put("user", user));
+                    return ResponseEntity.ok((Object) body);
+                })
                 .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body((Object) Map.of("error", "Credenciales inválidas o error al contactar con Keycloak"))));
     }

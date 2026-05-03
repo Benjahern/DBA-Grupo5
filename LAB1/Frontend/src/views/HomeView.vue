@@ -1,62 +1,58 @@
 <template>
   <div class="home-container">
     <header class="hero">
-      <h1>Bienvenido al Proyecto</h1>
-      <p>Esta es la página principal (HomeView). El enrutador está funcionando correctamente.</p>
-      
-      <button @click="triggerWelcomeAlert" class="action-btn">
-        Probar Alerta Global
-      </button>
-    </header>
+      <h1>¡Bienvenido, {{ userName }}!</h1>
+      <p>Administra tus instancias ahora.</p>
+    
 
-    <section class="features-grid">
-      <div class="card">
-        <h3>⚡ Vue 3 & Vite</h3>
-        <p>Renderizado ultrarrápido usando la Composition API.</p>
+      <div>
+        <Dashboard>
+        </Dashboard>
       </div>
-      <div class="card">
-        <h3>🛡️ TypeScript</h3>
-        <p>Código más seguro y autocompletado inteligente en el editor.</p>
-      </div>
-      <div class="card">
-        <h3>🧩 Componentes</h3>
-        <p>Arquitectura modular y escalable para trabajar en equipo.</p>
-      </div>
-    </section>
+    </header>
   </div>
 </template>
 
 <script setup>
 // Importamos el hook que creó Mharko. 
 // Ajusta la ruta dependiendo de dónde pusiste la carpeta Components
-import { useAlert } from '../components/Alerts/useAlert';
 
-// Extraemos la función para mostrar la alerta
-const { show } = useAlert()
+import Dashboard from '@/components/Instance Container/Dashboard.vue';
 
-// Función que se ejecuta al hacer clic en el botón
-const triggerWelcomeAlert = () => {
-  show({
-    message: '¡Excelente! La vista se comunicó con el componente global.',
-    severity: 'success',
-    autoHideMs: 4000
-  })
-}
+import { computed } from 'vue';
+import { getUser } from '../services/auth.js';
+
+const userName = computed(() => {
+  try {
+    const raw = localStorage.getItem('user');
+    const stored = raw ? JSON.parse(raw) : null;
+    if (stored?.name) return stored.name;
+  } catch (error_) {
+    // ignore
+  }
+  const tokenUser = getUser();
+  return tokenUser?.given_name || tokenUser?.name || tokenUser?.preferred_username || tokenUser?.email || 'Usuario';
+});
+
 </script>
 
 <style scoped>
 /* Scoped asegura que estos estilos SOLO afecten a HomeView */
 .home-container {
+  align-content: center;
   max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 90%;
+  margin: 0 auto; 
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   text-align: center;
+  padding-top: 2rem;
 }
 
 .hero {
+  align-content: center;
+  width: 110%;
   margin-bottom: 4rem;
-  padding: 3rem;
+  padding: 2rem;
   background-color: #f8f9fa;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.05);

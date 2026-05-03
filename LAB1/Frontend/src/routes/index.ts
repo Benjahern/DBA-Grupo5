@@ -2,13 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import Home from '../views/HomeView.vue';
+import InstanceStats from '../views/InstanceStats.vue';
 import NotFound from '../views/NotFound.vue';
 
 const routes = [
-  { path: '/', component: Home , meta : { title: 'Inicio' }},             
-  { path: '/login', component: Login, meta: { title: 'Iniciar Sesión' } },       
-  { path: '/register', component: Register, meta: { title: 'Registrarse' } },
-  { path: '/:pathMatch(.*)*', component: NotFound , meta: { title: 'Página No Encontrada' }}
+  { path: '/', name: 'home', component: Home , meta : { title: 'Inicio' }},             
+  { path: '/instances/:id/stats', name: 'instance-stats', component: InstanceStats, meta: { title: 'Estadisticas' } },
+  { path: '/login', name: 'login', component: Login, meta: { title: 'Iniciar Sesión' } },       
+  { path: '/register', name: 'register', component: Register, meta: { title: 'Registrarse' } },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound , meta: { title: 'Página No Encontrada' }}
 ];
 
 

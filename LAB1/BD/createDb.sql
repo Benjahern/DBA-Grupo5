@@ -6,6 +6,12 @@ CREATE TABLE "CPU" (
   "Cost_ph"  REAL           NOT NULL
 );
 
+CREATE TABLE "Ip" (
+  "Ip_id"      SERIAL PRIMARY KEY,
+  "Ip_address" VARCHAR(80)  NOT NULL,
+  "Assigned"       BOOLEAN      NOT NULL DEFAULT FALSE
+);
+
 CREATE TABLE "Ram" (
   "Ram_id"   BIGSERIAL PRIMARY KEY,
   "Quantity" INTEGER        NOT NULL,
@@ -107,5 +113,29 @@ CREATE TABLE "Ticket" (
 );
 
 
-INSERT INTO "Role" ("Role") VALUES ('user');
-INSERT INTO "Role" ("Role") VALUES ('admin');
+
+-- Insertar rol admin
+INSERT INTO "Role" ("Role") VALUES ('admin'), ('user');
+
+-- Insertar usuario admin
+INSERT INTO "Users" ("Email", "Name", "Max_instances", "Lock")
+VALUES ('admin@gmail.com', 'Admin', 10, false);
+
+-- Asignar rol admin al usuario
+INSERT INTO "User_role" ("User_id", "Role_id")
+SELECT u."User_id", r."Role_id"
+FROM "Users" u, "Role" r
+WHERE u."Email" = 'admin@gmail.com' AND r."Role" = 'admin';
+
+-- Insertar datos de prueba para recursos
+INSERT INTO "CPU" ("Quantity", "Cost_ph") VALUES
+(1, 0.05), (2, 0.10), (4, 0.20), (8, 0.40);
+
+INSERT INTO "Ram" ("Quantity", "Cost_ph") VALUES
+(1, 0.02), (2, 0.04), (4, 0.08), (8, 0.16);
+
+INSERT INTO "Storage" ("Quantity", "Cost_ph") VALUES
+(10, 0.01), (20, 0.02), (50, 0.05), (100, 0.10);
+
+INSERT INTO "Region" ("Name") VALUES
+('us-east'), ('us-west'), ('europe');

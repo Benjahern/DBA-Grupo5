@@ -17,8 +17,8 @@ public class IpService {
 
     public Ip create(String ipAddress) {
         Ip ip = Ip.builder()
-                .Ip_address(ipAddress)
-                .Used(true)
+                .Address(ipAddress)
+                .Assigned(true)
                 .build();
         return ipRepository.save(ip);
     }
@@ -37,6 +37,6 @@ public class IpService {
             throw new IllegalArgumentException("IP no encontrada con id: " + id);
         }
         Ip ip = ipOpt.get();
-        return ipRepository.updateUsed(id, !ip.isUsed());
+        return ipRepository.updateUsed(id, !ip.isAssigned());
     }
 }

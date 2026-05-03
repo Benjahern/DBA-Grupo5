@@ -44,10 +44,8 @@ public class InstanceService {
                                           Long regionId, String color, String baseImage){
 
         //Revisamos los recursos antes
-        CPU cpu = cpuService.getById(cpuId)
-                .orElseThrow(() -> new IllegalArgumentException("El Id de Cpu no existe"));
-        Ram ram = ramService.getById(ramId)
-                .orElseThrow(() -> new IllegalArgumentException("El Id de Ram no existe"));
+        CPU cpu = cpuService.getCpuById(cpuId);
+        Ram ram = ramService.getRamById(ramId);
 
         CreateContainerResponse container = null;
 
@@ -69,7 +67,12 @@ public class InstanceService {
             String containerName = name + "-" + userId + "-" + UUID.randomUUID().toString().substring(0,5);
 
             //Mandamos el mensaje a docker
-            container = dockerClient.createContainerCmd(baseImage).withName(containerName).withHostConfig(hostConfig)
+            // IMPORTANTE: Un contenedor ubuntu:latest por defecto corre un shell y sale inmediatamente si no se le pasa un comando continuo
+            // Usaremos "tail -f /dev/null" o "sleep infinity" para que se quede corriendo
+            container = dockerClient.createContainerCmd(baseImage)
+                    .withName(containerName)
+                    .withHostConfig(hostConfig)
+                    .withCmd("tail", "-f", "/dev/null")
                     .exec();
 
             //Iniciamos el contenedor
@@ -77,13 +80,9 @@ public class InstanceService {
 
             String ipAddress = resolveContainerIp(container.getId());
 
-            // Registrar la IP en la BD si no existe
-            Ip savedIp = ipService.findByAddress(ipAddress)
-                    .orElseGet(() -> {
-                        Ip newIp = ipService.create(ipAddress);
-                        return newIp;
-                    });
-            ipService.toggleUsed(savedIp.getIp_id());
+            // Asegurar que la IP existe en la BD (crear si no existe)
+            ipService.findByAddress(ipAddress)
+                    .orElseGet(() -> ipService.create(ipAddress));
 
             Instance newInstance = Instance.builder()
                     .Name(name)
@@ -95,13 +94,19 @@ public class InstanceService {
                     .State("Running")
                     .User_id(userId)
                     .Region_id(regionId)
-                    .Container_id(container.getId()) // Guardamos el ID real de Docker
+                    .Container_id(container.getId())
                     .Active_hours(Duration.ZERO)
                     .Ip_address(ipAddress)
                     .Color(color)
                     .build();
 
-            return instanceRepository.save(newInstance);
+            // Crear Instance primero para obtener el Instance_id
+            instanceRepository.save(newInstance);
+
+            // Llamar stored procedure para asignar IP y crear Ticket
+            instanceRepository.provisionInstance(ipAddress, newInstance.getInstance_id());
+
+            return newInstance;
         } catch ( Exception e){
             if (container != null && container.getId() != null) {
                 try {
@@ -196,7 +201,12 @@ public class InstanceService {
 
         } else if (State.equals("Terminated")) {
             // Terminar el contenedor en Docker y eliminarlo
-            dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
+            try {
+                dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
+            } catch (Exception e) {
+                // If it is already stopped, docker normally throws NotModifiedException.
+                System.out.println("Contenedor ya estaba detenido o no se pudo detener: " + e.getMessage());
+            }
             dockerClient.removeContainerCmd(instance.getContainer_id()).withForce(true).exec();
 
             // Actualizar el estado y marcar como terminado. 

@@ -42,7 +42,7 @@ const { alerts, hide } = useAlert();
   position: fixed;
   top: 72px;
   right: 16px;
-  z-index: 1400;
+  z-index: 3000;
   padding: 16px 20px;
   border-radius: 4px;
   display: flex;

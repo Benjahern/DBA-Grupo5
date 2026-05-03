@@ -119,6 +119,11 @@ public class InstanceRepository {
         return jdbcTemplate.update(sql, id) > 0;
     }
 
+    public void provisionInstance(String ipAddress, Long instanceId) {
+        String sql = "CALL provision_instance(?, ?)";
+        jdbcTemplate.update(sql, ipAddress, instanceId);
+    }
+
     private Instance mapInstance(ResultSet rs) throws SQLException {
         Timestamp startedAtTs = rs.getTimestamp("Started_at");
         String intervalStr = rs.getString("Active_hours");
