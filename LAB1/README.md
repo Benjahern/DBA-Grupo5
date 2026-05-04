@@ -64,7 +64,7 @@ Este comando:
 ### Paso 4: Verificar servicios
 
 ```bash
-# Estado de contenedores, Por favor esperar al rededor de 2 minutos para probar cualquier cosa
+# Estado de contenedores, Por favor esperar alrededor de 2 minutos para probar cualquier cosa
 docker compose ps
 
 # Logs del backend
