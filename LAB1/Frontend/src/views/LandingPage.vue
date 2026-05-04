@@ -121,18 +121,18 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <div class="container text-center">
+      <div class="container text-center position-relative">
         <p class="mb-2">Host Cloud Usach — Proyecto académico Bases de datos avanzadas</p>
         <p class="text-white-50 small">Universidad de Santiago de Chile</p>
+        <img :src="usachImage" alt="Usach" class="usach-image" />
       </div>
     </footer>
   </div>
 </template>
 
 <script setup>
-
-// Logo de la Usach
 import usachLogo from '../../public/usach-logo2.png';
+import usachImage from '../../public/image.png';
 </script>
 
 <style scoped>
@@ -397,6 +397,15 @@ import usachLogo from '../../public/usach-logo2.png';
 
 .footer p {
   margin: 0;
+}
+
+.usach-image {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  height: 40px;
+  width: auto;
+  opacity: 0.6;
 }
 
 /* Animations */
