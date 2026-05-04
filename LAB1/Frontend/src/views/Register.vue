@@ -172,16 +172,25 @@ const submit = async () => {
   
   try {
     const resp = await api.post('/api/auth/register', payload);
-    
+
     const data = resp.data;
-    const name = data?.user?.name || data?.name || identifier.value;
-    
+    const displayName = data?.user?.name || data?.name || identifier.value;
+
     storeAuthData(data);
-    
-    show({ message: `¡Bienvenido ${name}! Cuenta creada exitosamente`, severity: 'success', autoHideMs: 3500 });
-    
+
+    const hasToken = !!(data?.access_token || data?.token?.access_token);
+    if (!hasToken) {
+      const loginResp = await api.post('/api/auth/login', {
+        email: payload.email,
+        password: payload.password,
+      });
+      storeAuthData(loginResp.data);
+    }
+
+    show({ message: `¡Bienvenido ${displayName}! Cuenta creada exitosamente`, severity: 'success', autoHideMs: 3500 });
+
     setTimeout(() => { router.push('/home'); }, 500);
-    
+
   } catch (err) {
     console.error(err);
     msg.value = getregisterError(err);
