@@ -58,8 +58,8 @@ public class RegionRepository {
                             Region.builder()
                                     .Region_id(rs.getLong("Region_id"))
                                     .Name(rs.getString("Name"))
-                                    .Map_top(rs.getObject("Map_top") != null ? rs.getDouble("Map_top") : null)
-                                    .Map_left(rs.getObject("Map_left") != null ? rs.getDouble("Map_left") : null)
+                                    .Map_top(rs.getObject("map_top") != null ? rs.getDouble("map_top") : null)
+                                    .Map_left(rs.getObject("map_left") != null ? rs.getDouble("map_left") : null)
                                     .build()
                     , id);
             return Optional.ofNullable(region);
@@ -74,8 +74,8 @@ public class RegionRepository {
                         Region.builder()
                                     .Region_id(rs.getLong("Region_id"))
                                     .Name(rs.getString("Name"))
-                                    .Map_top(rs.getObject("Map_top") != null ? rs.getDouble("Map_top") : null)
-                                    .Map_left(rs.getObject("Map_left") != null ? rs.getDouble("Map_left") : null)
+                                    .Map_top(rs.getObject("map_top") != null ? rs.getDouble("map_top") : null)
+                                    .Map_left(rs.getObject("map_left") != null ? rs.getDouble("map_left") : null)
                                     .build());
     }
 

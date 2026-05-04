@@ -108,7 +108,6 @@ const updateRoles = () => {
     r => !["offline_access", "uma_authorization", "default-roles-host-usach"].includes(r)
   );
 
-  console.log("ROLES LIMPIOS:", roles.value);
 };
 
 onMounted(() => {
