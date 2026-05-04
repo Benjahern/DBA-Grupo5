@@ -153,27 +153,22 @@ const isLoading = ref(false);
 const cpusCatalog = ref([]);
 const ramsCatalog = ref([]);
 const storagesCatalog = ref([]);
-
+const regionsCatalog = ref([]);
 const expandedId = ref(null);
 
-//REGIONES PROVICIONALES
-const localRegions = [
-    { id: 1, name: 'Texas' },
-    { id: 2, name: 'SA East (São Paulo)' },
-    { id: 3, name: 'EU West (Ireland)' }
-];
 
-// CARGA DE CATÁLOGOS DE HARDWARE
 const loadCatalogs = async () => {
     try {
-        const [cpuRes, ramRes, stRes] = await Promise.all([
+        const [cpuRes, ramRes, stRes, regionRes] = await Promise.all([
             api.get('/api/cpus').catch(() => ({ data: [] })),
             api.get('/api/rams').catch(() => ({ data: [] })),
-            api.get('/api/storages').catch(() => ({ data: [] }))
+            api.get('/api/storages').catch(() => ({ data: [] })),
+            api.get('/api/regions').catch(() => ({ data: [] })) 
         ]);
         cpusCatalog.value = cpuRes.data;
         ramsCatalog.value = ramRes.data;
         storagesCatalog.value = stRes.data;
+        regionsCatalog.value = regionRes.data; 
     } catch (e) {
         console.error("No se pudieron cargar los catálogos", e);
     }
@@ -190,7 +185,6 @@ const parseHardware = (id, catalog, fieldKey1, fieldKey2) => {
     }
     return { quantity: 0, cost_ph: 0 };
 };
-
 
 const parseDurationToHours = (durationStr) => {
     if (!durationStr) return 0;
@@ -209,7 +203,6 @@ const parseDurationToHours = (durationStr) => {
 };
 
 
-// LÓGICA DE USUARIO Y CARGA
 const readStoredUser = () => {
     try {
         const raw = localStorage.getItem('user');
@@ -241,7 +234,6 @@ const fetchCurrentUser = async () => {
     return null;
 };
 
-// Mapeo de la BD hacia la vista
 const toViewInstance = (raw) => {
     const rawHours = raw?.active_hours ?? raw?.Active_hours;
     let computedHours = parseDurationToHours(rawHours);
@@ -252,8 +244,8 @@ const toViewInstance = (raw) => {
     }
 
     const regId = raw?.region_id ?? raw?.Region_id;
-    const foundRegion = localRegions.find(r => r.id == regId);
-    const regionNameStr = foundRegion ? foundRegion.name : `Region #${regId || 'Desconocida'}`;
+    const foundRegion = regionsCatalog.value.find(r => r.region_id == regId || r.Region_id == regId || r.id == regId);
+    const regionNameStr = foundRegion ? (foundRegion.Name || foundRegion.name) : `Region #${regId || 'Desconocida'}`;
 
     return {
         id: raw?.instance_id ?? raw?.Instance_id ?? raw?.id,
@@ -306,7 +298,6 @@ const initDashboard = async () => {
 };
 
 onMounted(initDashboard);
-
 
 const toggleDetail = (id) => {
     expandedId.value = expandedId.value === id ? null : id;
