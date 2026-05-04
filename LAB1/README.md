@@ -2,47 +2,13 @@
 
 Sistema para desplegar y gestionar instancias de servidores virtuales, bases de datos y consumo de ancho de banda.
 
-## Arquitectura
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Frontend                                │
-│                    Vue 3 + Vite + Pinia                         │
-│                       Puerto 5173                               │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │ HTTP + JWT
-                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         Backend                                 │
-│              Spring Boot 3.5 (Java 21)                          │
-│                  Puerto 8080                                    │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  Instance   │  │  Billing    │  │ Monitoring  │              │
-│  │  Service    │  │  Service    │  │  Service    │              │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
-│         │                │                │                     │
-│         └────────────────┼────────────────┘                     │
-│                          │                                      │
-│                    Spring JDBC                                  │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │
-          ┌───────────────┼───────────────┐
-          ▼               ▼               ▼
-    ┌──────────┐   ┌──────────┐   ┌──────────┐
-    │PostgreSQL│   │ Keycloak │   │  Docker  │
-    │   5432   │   │   8081   │   │    API   │
-    └──────────┘   └──────────┘   └──────────┘
-```
 
 ### Tecnologías
 
 | Componente | Tecnología | Versión |
 |------------|-------------|---------|
 | Frontend | Vue 3 + Composition API | 3.4+ |
-| Estado | Pinia | 2.1+ |
-| Build | Vite | 5.0+ |
 | Backend | Spring Boot | 3.5 |
-| Lenguaje | Java | 21 |
 | Seguridad | Spring Security OAuth2 | 6.3+ |
 | Base de datos | PostgreSQL | 16 |
 | Auth | Keycloak | 24 |
@@ -86,7 +52,7 @@ cp .env.example .env
 ### Paso 3: Iniciar todos los servicios
 
 ```bash
-docker-compose up --build
+docker compose up -d --build
 ```
 
 Este comando:
@@ -99,13 +65,13 @@ Este comando:
 
 ```bash
 # Estado de contenedores, Por favor esperar al rededor de 2 minutos para probar cualquier cosa
-docker-compose ps
+docker compose ps
 
 # Logs del backend
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # Logs de Keycloak
-docker-compose logs -f keycloak
+docker compose logs -f keycloak
 ```
 
 ### URLs de acceso
@@ -130,8 +96,8 @@ docker-compose logs -f keycloak
 ### Detener servicios
 
 ```bash
-docker-compose down          # Detener sin eliminar datos
-docker-compose down -v       # Detener y eliminar volúmenes (limpia BD)
+docker compose down          # Detener sin eliminar datos
+docker compose down -v       # Detener y eliminar volúmenes (limpia BD)
 ```
 
 ---
