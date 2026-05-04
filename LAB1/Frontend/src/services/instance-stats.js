@@ -1,7 +1,10 @@
 import { getToken } from './auth.js';
 import { apiBaseUrl } from './http-common.js';
 
-const resolveBaseUrl = () => apiBaseUrl || 'http://localhost:8080';
+const resolveBaseUrl = () => {
+  const rawBaseUrl = apiBaseUrl || 'http://localhost:8080';
+  return rawBaseUrl.replace(/\/+$/, '');
+};
 
 const clampPercent = (value) => {
   const parsed = Number(value);

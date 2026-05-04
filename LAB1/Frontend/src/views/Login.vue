@@ -216,6 +216,13 @@ const submit = async () => {
   font-size: 1.1rem;
 }
 
+/* Acciones de formulario */
+.actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 /* Botones y Checkbox inferior */
 .btn-acceder {
   background-color: white;

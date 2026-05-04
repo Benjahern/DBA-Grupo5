@@ -1,87 +1,80 @@
 <template>
   <aside v-if="isVisible" class="sidebar" :class="{ 'collapsed': isCollapsed }">
     <div class="logo-container">
-      <button class="toggle-btn" @click="toggleSidebar">☰</button>
-      <span v-if="!isCollapsed" class="logo-text">USACH Cloud</span>
+      <button class="toggle-btn" @click="toggleSidebar">
+        ☰
+      </button>
+      <button class="logo-text" @click="goToHome">
+        <span>USACH Cloud</span>
+      </button>
     </div>
     
     <nav class="sidebar-nav">
+      <div class="nav-group" :class="{ 'is-open': openGroups.infra && !isCollapsed }">
+        <div class="nav-title" @click="toggleGroup('infra')" title="Infraestructura">
+          <span class="icon">⚙️</span>
+          <span v-if="!isCollapsed" class="text">Infraestructura</span>
+          <span v-if="!isCollapsed" class="arrow">{{ openGroups.infra ? '▼' : '▶' }}</span>
+        </div>
+        <transition name="expand">
+          <ul v-if="openGroups.infra && !isCollapsed" class="nav-list">
+            <li :class="{ 'active-item': activeSection === 'servidor' }" @click="selectSection('servidor')">
+              Servidor
+            </li>
+            <li :class="{ 'active-item': activeSection === 'imagenes' }" @click="selectSection('imagenes')">
+              Imágenes
+            </li>
+          </ul>
+        </transition>
+      </div>
 
-      <!-- 🔴 ADMIN ONLY -->
-      <div v-if="isAdmin" class="nav-group" :class="{ 'is-open': openGroups.admin && !isCollapsed }">
-        <div class="nav-title" @click="toggleGroup('admin')">
+      <div v-if="userRole === 'admin'" class="nav-group admin-panel" :class="{ 'is-open': openGroups.admin && !isCollapsed }">
+        <div class="nav-title" @click="toggleGroup('admin')" title="Administración">
           <span class="icon">🛡️</span>
           <span v-if="!isCollapsed" class="text">Administración</span>
           <span v-if="!isCollapsed" class="arrow">{{ openGroups.admin ? '▼' : '▶' }}</span>
         </div>
         <transition name="expand">
           <ul v-if="openGroups.admin && !isCollapsed" class="nav-list">
-            <li @click="goToAdminInstances">Todas las instancias</li>
-            <li @click="goToAdminCost">Todos los costos</li>
-          </ul>
-        </transition>
-      </div>
-
-      <!-- 🔵 SERVIDORES (ADMIN + USER) -->
-      <div v-if="isAdmin || isUser" class="nav-group" :class="{ 'is-open': openGroups.servers && !isCollapsed }">
-        <div class="nav-title" @click="toggleGroup('servers')">
-          <span class="icon">🖥️</span>
-          <span v-if="!isCollapsed" class="text">Servidores</span>
-          <span v-if="!isCollapsed" class="arrow">{{ openGroups.servers ? '▼' : '▶' }}</span>
-        </div>
-        <transition name="expand">
-          <ul v-if="openGroups.servers && !isCollapsed" class="nav-list">
-            <li @click="goToHome">Crear instancia</li>
-            <li @click="goToStats">Ver estadísticas</li>
-          </ul>
-        </transition>
-      </div>
-
-      <!-- 🟢 COSTOS -->
-      <div v-if="isAdmin || isUser" class="nav-group" :class="{ 'is-open': openGroups.costs && !isCollapsed }">
-        <div class="nav-title" @click="toggleGroup('costs')">
-          <span class="icon">💰</span>
-          <span v-if="!isCollapsed" class="text">Costos</span>
-          <span v-if="!isCollapsed" class="arrow">{{ openGroups.costs ? '▼' : '▶' }}</span>
-        </div>
-        <transition name="expand">
-          <ul v-if="openGroups.costs && !isCollapsed" class="nav-list">
-
-            <!-- ADMIN -->
-            <li v-if="isAdmin" @click="goToAdminCost">
-              Todos los costos
+            <li :class="{ 'active-item': activeSection === 'usuarios' }" @click="selectSection('usuarios')">
+              Gestionar Usuarios
             </li>
-
-            <!-- USER -->
-            <li v-if="isUser" @click="goToCosts">
-              Boletas y facturación
+            <li :class="{ 'active-item': activeSection === 'todas-instancias' }" @click="goToAdminInstances">
+              Todas las Instancias
             </li>
-
+            <li @click="goToAdminCost">
+              Todos los Costos
+            </li>
           </ul>
         </transition>
       </div>
 
-      <!-- 🟣 REGIONES (solo admin) -->
-      <div v-if="isAdmin" class="nav-group" :class="{ 'is-open': openGroups.regions && !isCollapsed }">
-        <div class="nav-title" @click="toggleGroup('regions')">
-          <span class="icon">🌎</span>
-          <span v-if="!isCollapsed" class="text">Regiones</span>
-          <span v-if="!isCollapsed" class="arrow">{{ openGroups.regions ? '▼' : '▶' }}</span>
+      <div class="nav-group" v-for="item in ['red', 'seguridad', 'gestion']" :key="item">
+        <div class="nav-title" @click="selectSection(item)" :title="item">
+          <span class="icon">{{ getIcon(item) }}</span>
+          <span v-if="!isCollapsed" class="text capitalize">{{ item }}</span>
         </div>
-        <transition name="expand">
-          <ul v-if="openGroups.regions && !isCollapsed" class="nav-list">
-            <li @click="goToRegions">Uso de recursos</li>
-            <li @click="goToRegionsManagement">Gestión de recursos</li>
-          </ul>
-        </transition>
       </div>
 
+      <div class="nav-group">
+        <div class="nav-title" @click="goToCost" title="Costes">
+          <span class="icon">📊</span>
+          <span v-if="!isCollapsed" class="text capitalize">Costes</span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title" @click="goToRegions" title="Regiones">
+          <span class="icon">🌍</span>
+          <span v-if="!isCollapsed" class="text capitalize">Regiones</span>
+        </div>
+      </div>
     </nav>
 
     <div class="user-footer">
       <div v-if="!isCollapsed" class="user-info">
         <span class="user-name">{{ userName }}</span>
-        <span class="user-role">{{ roles.join(', ') }}</span>
+        <span class="user-role">{{ userRole }}</span>
       </div>
       <button @click="$emit('logout')" class="btn-logout">
         {{ isCollapsed ? '🚪' : 'Cerrar Sesión' }}
@@ -91,34 +84,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getUser, subscribe } from '../../services/auth.js';
-
-const isUser = computed(() => roles.value.includes("user"));
-
-// Roles reactivos
-const roles = ref<string[]>([]);
-
-const updateRoles = () => {
-  const user = getUser();
-  const rawRoles = user?.realm_access?.roles || [];
-
-  roles.value = rawRoles.filter(
-    r => !["offline_access", "uma_authorization", "default-roles-host-usach"].includes(r)
-  );
-
-};
-
-onMounted(() => {
-  updateRoles();
-  subscribe(updateRoles);
-});
-
-// Helpers de roles
-const isAdmin = computed(() => 
-  roles.value.includes("admin") || roles.value.includes("SysAdmin")
-);
 
 const props = defineProps({
   userRole: { type: String, default: 'admin' },
@@ -132,10 +99,8 @@ const router = useRouter();
 const isCollapsed = ref(false);
 
 const openGroups = reactive({
-  admin: false,
-  servers: false,
-  costs: false,
-  regions: false
+  infra: false,
+  admin: false
 });
 
 const isVisible = computed(() => {
@@ -167,6 +132,14 @@ const goToAdminInstances = () => {
   router.push({ name: 'admin-instances' });
 };
 
+const goToCost = () => {
+  if (props.userRole === 'admin') {
+    router.push({ name: 'admin-cost' });
+  } else {
+    router.push({ name: 'cost' });
+  }
+};
+
 const goToAdminCost = () => {
   router.push({ name: 'admin-cost' });
 };
@@ -175,20 +148,14 @@ const goToHome = () => {
   router.push({ name: 'home' });
 };
 
-const goToStats = () => {
-  router.push({ name: 'instance-stats' });
-};
-
-const goToCosts = () => {
-    router.push({ name: 'cost' });
-};
-
 const goToRegions = () => {
   router.push({ name: 'regions' });
 };
 
-const goToRegionsManagement = () => {
-  router.push({ name: 'regions-management' });
+const getIcon = (item: string) => {
+  const icons: any = { red: '🌐', seguridad: '🔒', gestion: '🛠️', costes: '📊' };
+  return icons[item];
+
 };
 </script>
 
