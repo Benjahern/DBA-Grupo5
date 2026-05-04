@@ -1,10 +1,10 @@
 <template>
-  <div class="map-container" @click="logCoordinates">
+  <div class="map-container">
     <div
       v-for="region in resources"
       :key="region.region_name"
       class="region-dot"
-      :style="getRegionStyle(region.region_name)"
+      :style="getRegionStyle(region)"
       @mouseenter="hoveredRegion = region"
       @mouseleave="hoveredRegion = null"
     >
@@ -14,7 +14,7 @@
     <div 
       v-if="hoveredRegion" 
       class="tooltip" 
-      :style="getTooltipStyle(hoveredRegion.region_name)"
+      :style="getTooltipStyle(hoveredRegion)"
     >
       <div class="tooltip-header">
         📍 Región: {{ hoveredRegion.region_name.toUpperCase() }}
@@ -24,6 +24,10 @@
         <p><strong>CPU:</strong> {{ hoveredRegion.total_cpu }} Cores</p>
         <p><strong>Storage:</strong> {{ hoveredRegion.total_storage }} GB</p>
       </div>
+    </div>
+
+    <div v-if="!isLoading && resources.length === 0" class="empty-overlay">
+      <p>No hay regiones con instancias activas</p>
     </div>
   </div>
 </template>
@@ -35,66 +39,59 @@ import api from '@/services/http-common';
 
 const resources = ref([]);
 const hoveredRegion = ref(null);
-
-/**
- * Diccionario de coordenadas basado en la imagen de 1357x628.
- * Se usan porcentajes para asegurar que los puntos se mantengan en su lugar
- * incluso si el contenedor cambia de tamaño.
- */
-const regionCoordinates = {
-  // Ajustado para la costa este de EE.UU. (Virginia/us-east)
-  'us-east': { top: '29.5%', left: '7.46%' },
-  // Coordenadas estimadas para otras regiones comunes
-  'us-west': { top: '38%', left: '15%' },
-  'sa-east': { top: '72%', left: '35%' },
-  'eu-central': { top: '30%', left: '52%' },
-  'ap-northeast': { top: '38%', left: '85%' }
-};
+const isLoading = ref(false);
 
 const fetchResources = async () => {
+  isLoading.value = true;
   try {
     // El backend solo devuelve instancias en estado 'Running' [cite: 1809, 2162]
     const response = await api.get('/api/admin/reports/global-resources');
     resources.value = response.data;
   } catch (error) {
     console.error('Error al cargar la Vista Materializada:', error);
+  } finally {
+    isLoading.value = false;
   }
 };
 
-const getRegionStyle = (regionName) => {
-  const coords = regionCoordinates[regionName.toLowerCase()];
-  if (!coords) return { display: 'none' };
-  
+/**
+ * Obtiene el estilo de posicionamiento para un punto de región.
+ * Usa las coordenadas map_top y map_left que vienen directamente 
+ * de la vista materializada (desde la tabla Region en la BD).
+ */
+const getRegionStyle = (region) => {
+  if (region.map_top == null || region.map_left == null) {
+    return { display: 'none' };
+  }
   return {
-    top: coords.top,
-    left: coords.left,
+    top: region.map_top + '%',
+    left: region.map_left + '%',
   };
 };
 
-const getTooltipStyle = (regionName) => {
-  const coords = regionCoordinates[regionName.toLowerCase()];
-  if (!coords) return { display: 'none' };
+const getTooltipStyle = (region) => {
+  if (region.map_top == null || region.map_left == null) {
+    return { display: 'none' };
+  }
   
-  return {
-    top: `calc(${coords.top} - 120px)`,
-    left: `calc(${coords.left} + 25px)`,
-  };
-};
+  // Ajustar posición del tooltip para que no se salga del mapa
+  const top = region.map_top;
+  const left = region.map_left;
+  
+  // Si el punto está muy a la derecha, mostrar tooltip a la izquierda
+  const tooltipLeft = left > 75 
+    ? `calc(${left}% - 265px)` 
+    : `calc(${left}% + 25px)`;
+  
+  // Si el punto está muy arriba, mostrar tooltip abajo
+  const tooltipTop = top < 20 
+    ? `calc(${top}% + 20px)` 
+    : `calc(${top}% - 120px)`;
 
-// Sólo para pruebas
-const logCoordinates = (event) => {
-  // Obtenemos las dimensiones y posición real de la imagen en pantalla
-  const bounds = event.currentTarget.getBoundingClientRect();
-  
-  // Calculamos la posición X e Y del clic dentro de la imagen
-  const x = event.clientX - bounds.left;
-  const y = event.clientY - bounds.top;
-  
-  // Lo convertimos a porcentaje exacto
-  const leftPercent = ((x / bounds.width) * 100).toFixed(2);
-  const topPercent = ((y / bounds.height) * 100).toFixed(2);
-  
-  console.log(`Coordenadas para el clic: { top: '${topPercent}%', left: '${leftPercent}%' }`);
+  return {
+    top: tooltipTop,
+    left: tooltipLeft,
+  };
 };
 
 onMounted(() => {
@@ -110,8 +107,8 @@ onMounted(() => {
   margin: 0 auto;
   aspect-ratio: 1357 / 628; /* Mantiene la proporción de la imagen original */
   
-  /* Carga la imagen desde la carpeta de assets  */
-  background-image: url('@/assets/world-map-detailed.png');
+  /* Carga la imagen desde la carpeta public */
+  background-image: url('/map.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
@@ -175,5 +172,23 @@ onMounted(() => {
   font-size: 13px;
   display: flex;
   justify-content: space-between;
+}
+
+.empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.empty-overlay p {
+  background: rgba(15, 23, 42, 0.9);
+  color: #94a3b8;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
 }
 </style>

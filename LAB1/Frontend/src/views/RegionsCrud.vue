@@ -17,18 +17,23 @@
         <div class="table-header">
           <div class="table-cell">ID</div>
           <div class="table-cell">Nombre</div>
+          <div class="table-cell">Ubicación</div>
           <div class="table-cell actions-cell">Acciones</div>
         </div>
 
         <div v-if="isLoading" class="loading">Cargando regiones...</div>
         
         <div v-else class="region-list">
-          <div v-for="region in regions" :key="region.id" class="region-row">
-            <p>{{ region.id }}</p>
-            <p>{{ region.name }}</p>
+          <div v-for="region in regions" :key="region.region_id" class="region-row">
+            <p>{{ region.region_id }}</p>
+            <p>{{ region.Name }}</p>
+            <p>
+              <span v-if="region.Map_top != null && region.Map_left != null" class="badge badge-ok">📍 Asignada</span>
+              <span v-else class="badge badge-pending">⚠ Sin ubicación</span>
+            </p>
             <div class="actions">
               <button class="btn edit-btn" @click="openEditModal(region)">Editar</button>
-              <button class="btn delete-btn" @click="deleteRegion(region.id)">Eliminar</button>
+              <button class="btn delete-btn" @click="deleteRegion(region.region_id)">Eliminar</button>
             </div>
           </div>
           <div v-if="regions.length === 0" class="empty-state">
@@ -50,11 +55,33 @@
             <label for="region-name">Nombre de la Región</label>
             <input 
               id="region-name" 
-              v-model="currentRegion.name" 
+              v-model="currentRegion.Name" 
               placeholder="Ej: us-east-1" 
               required 
             />
           </div>
+
+          <!-- Mini-mapa clickeable -->
+          <div class="input-group">
+            <label>Ubicación en el Mapa <span class="label-hint">(haz clic para posicionar)</span></label>
+            <div class="minimap-wrapper" @click="onMinimapClick">
+              <img src="/map.png" alt="Mapa mundial" class="minimap-img" draggable="false" />
+              <div 
+                v-if="currentRegion.Map_top != null && currentRegion.Map_left != null" 
+                class="minimap-dot"
+                :style="{ top: currentRegion.Map_top + '%', left: currentRegion.Map_left + '%' }"
+              >
+                <div class="minimap-pulse"></div>
+              </div>
+            </div>
+            <p v-if="currentRegion.Map_top != null" class="coord-info">
+              📍 Posición: Top {{ currentRegion.Map_top.toFixed(1) }}% · Left {{ currentRegion.Map_left.toFixed(1) }}%
+            </p>
+            <p v-else class="coord-info coord-empty">
+              Haz clic en el mapa para asignar la ubicación de la región
+            </p>
+          </div>
+
           <div class="form-actions">
             <button type="submit" class="action-btn primary" :disabled="isSaving">
               {{ isSaving ? 'Guardando...' : 'Guardar' }}
@@ -80,7 +107,7 @@ const isLoading = ref(false);
 const showModal = ref(false);
 const isEditing = ref(false);
 const isSaving = ref(false);
-const currentRegion = ref({ id: null, name: '' });
+const currentRegion = ref({ region_id: null, Name: '', Map_top: null, Map_left: null });
 
 // Cargar Regiones
 const fetchRegions = async () => {
@@ -98,7 +125,7 @@ const fetchRegions = async () => {
 // Modal Actions
 const openCreateModal = () => {
   isEditing.value = false;
-  currentRegion.value = { id: null, name: '' };
+  currentRegion.value = { region_id: null, Name: '', Map_top: null, Map_left: null };
   showModal.value = true;
 };
 
@@ -112,15 +139,34 @@ const closeModal = () => {
   showModal.value = false;
 };
 
+// Mini-mapa click handler
+const onMinimapClick = (event) => {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  const x = event.clientX - bounds.left;
+  const y = event.clientY - bounds.top;
+  
+  const leftPercent = parseFloat(((x / bounds.width) * 100).toFixed(2));
+  const topPercent = parseFloat(((y / bounds.height) * 100).toFixed(2));
+  
+  currentRegion.value.Map_top = topPercent;
+  currentRegion.value.Map_left = leftPercent;
+};
+
 // Guardar (Crear o Actualizar)
 const saveRegion = async () => {
   isSaving.value = true;
   try {
+    const payload = { 
+      Name: currentRegion.value.Name,
+      Map_top: currentRegion.value.Map_top,
+      Map_left: currentRegion.value.Map_left
+    };
     if (isEditing.value) {
-      await api.put(`/api/regions/${currentRegion.value.id}`, { region_id: currentRegion.value.id, Name: currentRegion.value.name });
+      payload.region_id = currentRegion.value.region_id;
+      await api.put(`/api/regions/${currentRegion.value.region_id}`, payload);
       show({ message: 'Región actualizada exitosamente', severity: 'success', autoHideMs: 4000 });
     } else {
-      await api.post('/api/regions', { Name: currentRegion.value.name });
+      await api.post('/api/regions', payload);
       show({ message: 'Región creada exitosamente', severity: 'success', autoHideMs: 4000 });
     }
     closeModal();
@@ -189,7 +235,7 @@ onMounted(() => {
 
 .table-header {
   display: grid;
-  grid-template-columns: 80px 1fr 150px;
+  grid-template-columns: 60px 1fr 120px 150px;
   font-weight: bold;
   padding: 10px;
   border-bottom: 2px solid #eaeaea;
@@ -198,10 +244,28 @@ onMounted(() => {
 
 .region-row {
   display: grid;
-  grid-template-columns: 80px 1fr 150px;
+  grid-template-columns: 60px 1fr 120px 150px;
   align-items: center;
   padding: 12px 10px;
   border-bottom: 1px solid #eaeaea;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-pending {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .actions {
@@ -236,7 +300,7 @@ onMounted(() => {
 }
 .action-btn:hover { background-color: #33a06f; }
 
-/* Modal Styles similares a ConfirmInstance.vue */
+/* Modal Styles */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -248,7 +312,9 @@ onMounted(() => {
 }
 
 .modal-card {
-  width: min(400px, 100vw);
+  width: min(560px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
   background: #ffffff;
   border-radius: 12px;
   padding: 20px;
@@ -284,11 +350,81 @@ onMounted(() => {
   color: #333;
 }
 
+.label-hint {
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
 .input-group input {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 6px;
   font-size: 1rem;
+}
+
+/* Mini-mapa clickeable */
+.minimap-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: crosshair;
+  border: 2px solid #e2e8f0;
+  transition: border-color 0.2s;
+}
+
+.minimap-wrapper:hover {
+  border-color: #42b883;
+}
+
+.minimap-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.minimap-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background-color: #ef4444;
+  border: 2px solid white;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.minimap-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(239, 68, 68, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: minimap-pulse-anim 2s infinite;
+}
+
+@keyframes minimap-pulse-anim {
+  0% { width: 14px; height: 14px; opacity: 1; }
+  100% { width: 40px; height: 40px; opacity: 0; }
+}
+
+.coord-info {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.coord-empty {
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .form-actions {

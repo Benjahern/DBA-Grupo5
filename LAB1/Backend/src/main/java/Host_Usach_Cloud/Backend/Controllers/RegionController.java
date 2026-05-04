@@ -3,12 +3,11 @@ package Host_Usach_Cloud.Backend.Controllers;
 import Host_Usach_Cloud.Backend.Entity.Region;
 import Host_Usach_Cloud.Backend.Services.RegionService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Controller
+@RestController
 @RequestMapping("/api/regions")
 public class RegionController {
     private final RegionService regionService;

@@ -17,4 +17,10 @@ public class Region {
 
     @JsonProperty("Name")
     private String Name;
+
+    @JsonProperty("Map_top")
+    private Double Map_top;
+
+    @JsonProperty("Map_left")
+    private Double Map_left;
 }

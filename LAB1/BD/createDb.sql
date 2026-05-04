@@ -26,7 +26,9 @@ CREATE TABLE "Storage" (
 
 CREATE TABLE "Region" (
   "Region_id" BIGSERIAL PRIMARY KEY,
-  "Name"      VARCHAR(80) NOT NULL
+  "Name"      VARCHAR(80) NOT NULL,
+  "Map_top"   REAL,
+  "Map_left"  REAL
 );
 
 CREATE TABLE "Role" (
@@ -137,5 +139,5 @@ INSERT INTO "Ram" ("Quantity", "Cost_ph") VALUES
 INSERT INTO "Storage" ("Quantity", "Cost_ph") VALUES
 (10, 0.01), (20, 0.02), (50, 0.05), (100, 0.10);
 
-INSERT INTO "Region" ("Name") VALUES
-('us-east'), ('us-west'), ('europe');
+INSERT INTO "Region" ("Name", "Map_top", "Map_left") VALUES
+('us-east', 33.0, 22.0), ('us-west', 34.0, 13.0), ('europe', 28.0, 50.0);

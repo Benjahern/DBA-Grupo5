@@ -2,6 +2,8 @@
 CREATE MATERIALIZED VIEW IF NOT EXISTS vista_recursos_globales AS
 SELECT
     r."Name" AS region_name,
+    MIN(r."Map_top") AS map_top,
+    MIN(r."Map_left") AS map_left,
     SUM(ram."Quantity") AS total_ram,
     SUM(cpu."Quantity") AS total_cpu,
     SUM(st."Quantity") AS total_storage

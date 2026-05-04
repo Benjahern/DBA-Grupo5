@@ -1,6 +1,5 @@
 package Host_Usach_Cloud.Backend.Repository;
 
-import Host_Usach_Cloud.Backend.Entity.Ram;
 import Host_Usach_Cloud.Backend.Entity.Region;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,12 +21,22 @@ public class RegionRepository {
     }
 
     public Region save(Region region) {
-        String sql = "INSERT INTO \"Region\" (\"Name\") VALUES (?)";
+        String sql = "INSERT INTO \"Region\" (\"Name\", \"Map_top\", \"Map_left\") VALUES (?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, region.getName());
+            if (region.getMap_top() != null) {
+                ps.setDouble(2, region.getMap_top());
+            } else {
+                ps.setNull(2, java.sql.Types.REAL);
+            }
+            if (region.getMap_left() != null) {
+                ps.setDouble(3, region.getMap_left());
+            } else {
+                ps.setNull(3, java.sql.Types.REAL);
+            }
             return ps;
         }, keyHolder);
 
@@ -49,6 +58,8 @@ public class RegionRepository {
                             Region.builder()
                                     .Region_id(rs.getLong("Region_id"))
                                     .Name(rs.getString("Name"))
+                                    .Map_top(rs.getObject("Map_top") != null ? rs.getDouble("Map_top") : null)
+                                    .Map_left(rs.getObject("Map_left") != null ? rs.getDouble("Map_left") : null)
                                     .build()
                     , id);
             return Optional.ofNullable(region);
@@ -63,12 +74,14 @@ public class RegionRepository {
                         Region.builder()
                                     .Region_id(rs.getLong("Region_id"))
                                     .Name(rs.getString("Name"))
+                                    .Map_top(rs.getObject("Map_top") != null ? rs.getDouble("Map_top") : null)
+                                    .Map_left(rs.getObject("Map_left") != null ? rs.getDouble("Map_left") : null)
                                     .build());
     }
 
     public boolean update(Region region) {
-        String sql = "UPDATE \"Region\" SET \"Name\" = ? WHERE \"Region_id\" = ?";
-        return jdbcTemplate.update(sql, region.getName(), region.getRegion_id()) > 0;
+        String sql = "UPDATE \"Region\" SET \"Name\" = ?, \"Map_top\" = ?, \"Map_left\" = ? WHERE \"Region_id\" = ?";
+        return jdbcTemplate.update(sql, region.getName(), region.getMap_top(), region.getMap_left(), region.getRegion_id()) > 0;
     }
 
     public boolean deleteById(Long id) {

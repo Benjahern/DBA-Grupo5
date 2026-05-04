@@ -18,7 +18,17 @@ public class MaterializedViewController {
 
     @GetMapping("/global-resources")
     public List<Map<String, Object>> getGlobalResources() {
-        // Consultamos la vista materializada, no las tablas base. ¡Velocidad pura!
+        // Refrescamos la vista materializada antes de consultarla para asegurar datos actualizados
+        try {
+            jdbcTemplate.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY vista_recursos_globales");
+        } catch (Exception e) {
+            // Si falla el refresco concurrente (ej: no hay datos), intentamos sin CONCURRENTLY
+            try {
+                jdbcTemplate.execute("REFRESH MATERIALIZED VIEW vista_recursos_globales");
+            } catch (Exception ignored) {
+                // Si aún falla, devolvemos los datos cacheados
+            }
+        }
         return jdbcTemplate.queryForList("SELECT * FROM vista_recursos_globales");
     }
 }
