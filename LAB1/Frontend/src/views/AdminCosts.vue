@@ -152,29 +152,25 @@ const isLoading = ref(false);
 const cpusCatalog = ref([]);
 const ramsCatalog = ref([]);
 const storagesCatalog = ref([]);
-
+const regionsCatalog = ref([]);
 const expandedId = ref(null);
 
-// REGIONES PROVISIONALES
-const localRegions = [
-  { id: 1, name: 'Texas' },
-  { id: 2, name: 'SA East (São Paulo)' },
-  { id: 3, name: 'EU West (Ireland)' }
-];
-
 const loadCatalogs = async () => {
-  try {
-    const [cpuRes, ramRes, stRes] = await Promise.all([
-      api.get('/api/cpus').catch(() => ({ data: [] })),
-      api.get('/api/rams').catch(() => ({ data: [] })),
-      api.get('/api/storages').catch(() => ({ data: [] }))
-    ]);
-    cpusCatalog.value = cpuRes.data;
-    ramsCatalog.value = ramRes.data;
-    storagesCatalog.value = stRes.data;
-  } catch (e) {
-    console.error('No se pudieron cargar los catálogos', e);
-  }
+    try {
+        const [cpuRes, ramRes, stRes, regionRes] = await Promise.all([
+            api.get('/api/cpus').catch(() => ({ data: [] })),
+            api.get('/api/rams').catch(() => ({ data: [] })),
+            api.get('/api/storages').catch(() => ({ data: [] })),
+            api.get('/api/regions').catch(() => ({ data: [] })) 
+        ]);
+        cpusCatalog.value = cpuRes.data;
+        ramsCatalog.value = ramRes.data;
+        storagesCatalog.value = stRes.data;
+        regionsCatalog.value = regionRes.data; 
+        
+    } catch (e) {
+        console.error("No se pudieron cargar los catálogos", e);
+    }
 };
 
 const parseHardware = (id, catalog, fieldKey1, fieldKey2) => {
@@ -215,7 +211,9 @@ const toViewInstance = (raw) => {
   }
 
   const regId = raw?.region_id ?? raw?.Region_id;
-  const foundRegion = localRegions.find(r => r.id == regId);
+  const foundRegion = regionsCatalog.value.find(r => 
+        r.region_id == regId || r.Region_id == regId || r.id == regId
+    );
   const regionNameStr = foundRegion ? foundRegion.name : `Region #${regId || 'Desconocida'}`;
 
   return {
