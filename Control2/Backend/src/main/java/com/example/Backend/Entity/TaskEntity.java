@@ -16,8 +16,9 @@ public class TaskEntity {
     Long id;
     String title;
     String description;
+    LocalDate creationDate;
     LocalDate dueDate;
     Long userID;
     Long sectorID;
-    Boolean isDone;
+    String status; // Los estados son vigente, atrasado, completado y completadoAtrasado
 }

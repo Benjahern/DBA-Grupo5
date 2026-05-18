@@ -55,7 +55,7 @@ public class TaskController {
     }
 
     @RequestMapping("/status")
-    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) Boolean status){
+    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) String status){
         List<TaskEntity> taskList = taskService.getByStatus(status);
         return ResponseEntity.ok(taskList);
     }
@@ -67,8 +67,8 @@ public class TaskController {
     }
 
     @RequestMapping("/statusAndKeyword")
-    public ResponseEntity<List<TaskEntity>> getByStatusAndKeyword(@RequestParam(required = false) Boolean status,
-                                                         @RequestParam(required = false) String keyword){
+    public ResponseEntity<List<TaskEntity>> getByStatusAndKeyword(@RequestParam(required = false) String status,
+                                                                  @RequestParam(required = false) String keyword){
         List<TaskEntity> taskList = taskService.getByStatusAndKeyword(status, keyword);
         return ResponseEntity.ok(taskList);
     }

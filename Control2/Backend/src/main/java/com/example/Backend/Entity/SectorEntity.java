@@ -21,9 +21,10 @@ public class SectorEntity {
     Long id;
     String name;
 
-    // No se si piensar usar la ubicación como Point o como otro tipo de dato
-    Point geoLocation;
+    @Column(columnDefinition = "geometry(Point, 4326)")
+    private Point geoLocation;
 
     @ElementCollection
-    List<Long> taskList = new java.util.ArrayList<>();
+    @CollectionTable(name = "sector_tasks", joinColumns = @JoinColumn(name = "task_id"))
+    List<TaskData> taskList = new java.util.ArrayList<>();
 }

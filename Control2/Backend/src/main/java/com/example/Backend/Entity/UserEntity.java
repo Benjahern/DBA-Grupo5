@@ -23,8 +23,8 @@ public class UserEntity {
     String email;
     String password;
 
-    // No se si piensar usar la ubicación como Point o como otro tipo de dato
-    Point geoLocation;
+    @Column(columnDefinition = "geometry(Point, 4326)")
+    private Point geoLocation;
 
     @ElementCollection
     List<Long> taskList = new java.util.ArrayList<>();
