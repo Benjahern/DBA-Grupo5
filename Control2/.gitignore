@@ -1,0 +1,24 @@
+# Environment
+.env
+
+# Build
+Backend/build/
+Frontend/build/
+Frontend/node_modules/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Docker
+*.dockerignore
+
+# Claude
+.claude/
