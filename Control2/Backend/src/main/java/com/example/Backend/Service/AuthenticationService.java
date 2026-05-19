@@ -8,15 +8,24 @@ import com.example.Backend.Repository.UserRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 @Service
 public class AuthenticationService {
 
+    private static final String AUTH_COOKIE_NAME = "auth_token";
+
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpiration;
 
     public AuthenticationService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                                  JwtService jwtService) {
@@ -51,6 +60,9 @@ public class AuthenticationService {
     public AuthResponse login(LoginRequest request) {
         UserEntity user = userRepository.findByUserName(request.getUsername());
         if (user == null) {
+            user = userRepository.findByEmail(request.getUsername());
+        }
+        if (user == null) {
             throw new RuntimeException("Usuario no encontrado");
         }
 
@@ -61,6 +73,26 @@ public class AuthenticationService {
         String token = jwtService.generateToken(user);
 
         return new AuthResponse(token, user.getUserName());
+    }
+
+    public ResponseCookie buildAuthCookie(String token) {
+        return ResponseCookie.from(AUTH_COOKIE_NAME, token)
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(Duration.ofMillis(jwtExpiration))
+                .build();
+    }
+
+    public ResponseCookie expireAuthCookie() {
+        return ResponseCookie.from(AUTH_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(Duration.ZERO)
+                .build();
     }
 
 
