@@ -1,3 +1,13 @@
 <template>
-    <h1>Dashboard</h1>
+  <div>
+
+    <h2>
+      Dashboard
+    </h2>
+
+    <p>
+      Bienvenido al sistema
+    </p>
+
+  </div>
 </template>

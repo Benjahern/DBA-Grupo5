@@ -4,30 +4,59 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/Login.vue'
 import RegisterView from '../views/Register.vue'
 import DashboardView from '../views/Dashboard.vue'
+import MainLayout from '../layouts/MainLayout.vue'
+import TasksView from '../views/Tasks.vue'
+import NotificationsView from '../views/Notifications.vue'
+import SectorCreateView from '../views/SectorCreate.vue'
 
 // Definición de rutas
 const routes = [
+
+  // Página inicial
   {
     path: '/',
     redirect: '/login'
   },
 
+  // Públicas
   {
     path: '/login',
-    name: 'login',
     component: LoginView
   },
 
   {
     path: '/register',
-    name: 'register',
     component: RegisterView
   },
 
+  // Privadas
   {
-    path: '/dashboard',
-    name: 'dashboard',
-    component: DashboardView
+    path: '/',
+    component: MainLayout,
+
+    children: [
+
+      {
+        path: 'dashboard',
+        component: DashboardView
+      },
+
+      {
+        path: 'tasks',
+        component: TasksView
+      },
+
+      {
+        path: 'notifications',
+        component: NotificationsView
+      },
+
+      {
+        path: 'sectors',
+        component: SectorCreateView
+      }
+
+    ]
   }
 ]
 
