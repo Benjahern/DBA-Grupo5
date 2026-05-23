@@ -1,130 +1,174 @@
 <template>
   <div class="login-wrapper">
     <div class="login-card">
+
       <h2 class="title">CREA TU CUENTA AHORA</h2>
 
       <form @submit.prevent="submit" class="form-grid">
+
+        <!-- USERNAME -->
         <div class="input-row">
+
           <div class="input-group">
-            <label for="register-username">Nombre de usuario</label>
+            <label for="register-username">
+              Nombre de usuario
+            </label>
+
             <div class="input-container">
               <span class="icon" aria-hidden>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg"
+                     width="16"
+                     height="16"
+                     fill="currentColor"
+                     class="bi bi-person"
+                     viewBox="0 0 16 16">
+                  <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/>
+                </svg>
               </span>
-              <input id="register-username" v-model="username" placeholder="tu usuario" required />
+
+              <input
+                id="register-username"
+                type="text"
+                v-model="username"
+                placeholder="tu nombre de usuario"
+                required
+              />
             </div>
           </div>
 
+          <!-- PASSWORD -->
           <div class="input-group">
-            <label for="register-identifier">Email</label>
+            <label for="register-password">
+              Contraseña
+            </label>
+
             <div class="input-container">
               <span class="icon" aria-hidden>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l9 6 9-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 8v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg width="16"
+                     height="16"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3"
+                        y="11"
+                        width="18"
+                        height="11"
+                        rx="2"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                  <path d="M7 11V8a5 5 0 0 1 10 0v3"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                </svg>
               </span>
-              <input id="register-identifier" type="email" v-model="identifier" placeholder="tu email" required />
+
+              <input
+                id="register-password"
+                type="password"
+                v-model="password"
+                placeholder="tu contraseña"
+                required
+              />
             </div>
           </div>
+
         </div>
 
+        <!-- LOCATION PICKER -->
         <div class="input-row">
-          <div class="input-group">
-            <label for="register-address">Dirección</label>
-            <div class="input-container">
-              <span class="icon" aria-hidden>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/></svg>
-              </span>
-              <input id="register-address" v-model="address" placeholder="Dirección" readonly />
-            </div>
-          </div>
-          <div class="input-group">
-            <label for="register-location">Ubicación</label>
-            <div class="input-container">
-              <span class="icon" aria-hidden>📍</span>
-              <input id="register-location" v-model="locationLabel" placeholder="Ubicación" readonly />
-            </div>
-          </div>
-        </div>
 
-        <div class="input-row">
-          <div class="input-group">
-            <label for="register-password">Contraseña</label>
-            <div class="input-container">
-              <span class="icon" aria-hidden>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </span>
-              <input id="register-password" type="password" v-model="password" placeholder="tu contraseña" required />
-            </div>
+          <div class="input-group full-width">
+
+            <label>
+              Selecciona tu ubicación
+            </label>
+
+            <LocationPicker
+              @location-selected="handleLocationSelected"
+            />
+
           </div>
 
-          <div class="input-group">
-            <label for="register-password-confirm">Confirmar contraseña</label>
-            <div class="input-container">
-              <span class="icon" aria-hidden>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </span>
-              <input id="register-password-confirm" type="password" v-model="passwordConfirm" placeholder="confirma tu contraseña" required />
-            </div>
-          </div>
         </div>
-        
+
+        <!-- BOTONES -->
         <div class="actions">
-          <button class="btn-acceder" type="submit" :disabled="loading" style="width: 100%; justify-content: center">
+
+          <button
+            class="btn-acceder"
+            type="submit"
+            :disabled="loading"
+            style="width: 100%; justify-content: center"
+          >
             {{ loading ? 'Registrando...' : 'Crear cuenta' }}
           </button>
-          <button type="button" class="btn-acceder" style="width: 100%; justify-content: center" @click="goToLogin">
+
+          <button
+            type="button"
+            class="btn-acceder"
+            style="width: 100%; justify-content: center"
+            @click="goToLogin"
+          >
             ¿Ya tienes cuenta? Inicia sesión
           </button>
+
         </div>
+
       </form>
 
-      <div v-if="msg" class="form-message" style="white-space: pre-wrap;">{{ msg }}</div>
+      <div
+        v-if="msg"
+        class="form-message"
+        style="white-space: pre-wrap;"
+      >
+        {{ msg }}
+      </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router'; 
+import { useRouter } from 'vue-router';
+import LocationPicker from '../components/Maps/LocationPicker.vue';
 import { register } from '../services/auth.js';
 import { useAlert } from '../components/Alerts/useAlert.js';
 
 const router = useRouter();
 const { show } = useAlert();
-const identifier = ref('');
+
+const username = ref('');
 const password = ref('');
-const passwordConfirm = ref('');
 const loading = ref(false);
 const msg = ref(null);
-const username = ref('');
 
-const DEFAULT_LATITUDE = -33.4489;
-const DEFAULT_LONGITUDE = -70.6693;
-const address = ref('Av. Libertador Bernardo O\'Higgins 3363, Santiago');
-const locationLabel = ref(`${DEFAULT_LATITUDE}, ${DEFAULT_LONGITUDE}`);
+const latitude = ref(null);
+const longitude = ref(null);
 
 const getregisterError = (err) => {
   const backendError = err.response?.data?.error || err.response?.data?.message || null;
 
   if (err.response?.status === 409) {
     show({
-      message: 'El usuario o correo ya se encuentra registrado. Por favor, intenta iniciar sesión.',
+      message: 'El usuario ya se encuentra registrado. Por favor, intenta iniciar sesión.',
       severity: 'warning',
       autoHideMs: 5000
     });
-    return 'El usuario o correo ya se encuentra registrado.';
-  } 
+    return 'El usuario ya se encuentra registrado.';
+  }
   if (err.response?.status === 400) {
     if (backendError) {
-      const isDuplicate = /status:\s*409|already exists|ya existe|duplicate/i.test(String(backendError));
-      const message = isDuplicate
-        ? 'El correo ya esta registrado. Intenta con otro correo o inicia sesion.'
-        : `Error de registro: ${backendError}`;
       show({
-        message,
-        severity: isDuplicate ? 'warning' : 'error',
+        message: `Error de registro: ${backendError}`,
+        severity: 'error',
         autoHideMs: 5000
       });
-      return message;
+      return `Error de registro: ${backendError}`;
     }
     show({
       message: 'Los datos ingresados son inválidos. Verifica tu información.',
@@ -145,31 +189,35 @@ const goToLogin = () => {
   router.push('/login');
 };
 
+const handleLocationSelected = (location) => {
+  latitude.value = location.latitude;
+  longitude.value = location.longitude;
+};
+
 const submit = async () => {
   msg.value = null;
 
+  if (!username.value.trim() || !password.value) {
+    msg.value = 'Completa usuario y contraseña.';
+    show({ message: 'Completa usuario y contraseña.', severity: 'warning', autoHideMs: 4000 });
+    return;
+  }
+
+  if (latitude.value == null || longitude.value == null) {
+    msg.value = 'Selecciona una ubicación en el mapa.';
+    show({ message: 'Selecciona una ubicación en el mapa.', severity: 'warning', autoHideMs: 4000 });
+    return;
+  }
+
   const payload = {
-    email: identifier.value.trim(),
     username: username.value.trim(),
     password: password.value,
-    latitude: DEFAULT_LATITUDE,
-    longitude: DEFAULT_LONGITUDE,
+    latitude: latitude.value,
+    longitude: longitude.value,
   };
 
-  if (password.value !== passwordConfirm.value) {
-    msg.value = 'Las contraseñas no coinciden.';
-    show({ message: 'Las contraseñas no coinciden.', severity: 'warning', autoHideMs: 4000 });
-    return;
-  }
-
-  if (!payload.email || !payload.username || !payload.password) {
-    msg.value = 'Completa usuario, email y contraseña.';
-    show({ message: 'Completa usuario, email y contraseña.', severity: 'warning', autoHideMs: 4000 });
-    return;
-  }
-
   loading.value = true;
-  
+
   try {
     await register(payload);
 
@@ -180,7 +228,6 @@ const submit = async () => {
     });
 
     setTimeout(() => { router.push('/home'); }, 500);
-
   } catch (err) {
     console.error(err);
     msg.value = getregisterError(err);
@@ -280,6 +327,10 @@ const submit = async () => {
 
 .btn-acceder:hover {
   background-color: #f0f0f0;
+}
+
+.full-width {
+  width: 100%;
 }
 
 /* Responsividad para pantallas pequeñas */

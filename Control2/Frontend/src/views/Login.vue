@@ -1,17 +1,22 @@
 <template>
+  <!-- Estructura de la tarjeta de login -->
   <div class="login-wrapper">
     <div class="login-card">
       <h2 class="title">ACCEDA A SU CUENTA</h2>
 
+      <!-- Formulario de login -->
       <form @submit.prevent="submit" class="form-grid">
+        <!-- Fila de inputs con íconos -->
         <div class="input-row">
+          <!-- Input de correo electrónico con ícono -->
           <div class="input-group">
-            <label for="login-identifier">Username o correo electrónico</label>
+            <label for="login-identifier">Correo electrónico</label>
             <div class="input-container">
-              <input 
+              <!-- La entrada se guarda en la variable 'identifier' -->
+                <input 
                 id="login-identifier" 
                 type="text" 
-                placeholder="Username o correo electrónico" 
+                placeholder="Correo electrónico" 
                 v-model="identifier"
                 required
               />
@@ -19,9 +24,11 @@
             </div>
           </div>
 
+          <!-- Input de contraseña con ícono -->
           <div class="input-group">
             <label for="login-password">Contraseña</label>
             <div class="input-container">
+              <!-- La entrada se guarda en la variable 'password' -->
               <input 
                 id="login-password" 
                 type="password" 

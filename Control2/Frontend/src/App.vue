@@ -1,8 +1,8 @@
 <script setup>
-import TransitionAlert from './components/Alerts/TransitionAlert.vue';
+import router from './router';
+
 </script>
 
 <template>
-  <TransitionAlert />
   <router-view />
 </template>
