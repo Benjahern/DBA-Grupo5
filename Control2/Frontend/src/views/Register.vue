@@ -136,75 +136,104 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import LocationPicker from '../components/Maps/LocationPicker.vue';
+import { register } from '../services/auth.js';
+import { useAlert } from '../components/Alerts/useAlert.js';
 
 const router = useRouter();
+const { show } = useAlert();
 
 const username = ref('');
 const password = ref('');
 const loading = ref(false);
 const msg = ref(null);
 
-// Coordenadas seleccionadas
 const latitude = ref(null);
 const longitude = ref(null);
 
-/**
- * Navega al login
- */
+const getregisterError = (err) => {
+  const backendError = err.response?.data?.error || err.response?.data?.message || null;
+
+  if (err.response?.status === 409) {
+    show({
+      message: 'El usuario ya se encuentra registrado. Por favor, intenta iniciar sesión.',
+      severity: 'warning',
+      autoHideMs: 5000
+    });
+    return 'El usuario ya se encuentra registrado.';
+  }
+  if (err.response?.status === 400) {
+    if (backendError) {
+      show({
+        message: `Error de registro: ${backendError}`,
+        severity: 'error',
+        autoHideMs: 5000
+      });
+      return `Error de registro: ${backendError}`;
+    }
+    show({
+      message: 'Los datos ingresados son inválidos. Verifica tu información.',
+      severity: 'error',
+      autoHideMs: 4000
+    });
+    return 'Los datos ingresados son inválidos.';
+  }
+  show({
+    message: 'Ocurrió un error al intentar crear la cuenta. Inténtalo de nuevo.',
+    severity: 'error',
+    autoHideMs: 4000
+  });
+  return 'Ocurrió un error inesperado al registrar el usuario.';
+};
+
 const goToLogin = () => {
   router.push('/login');
 };
 
-/**
- * Recibe ubicación desde LocationPicker
- */
 const handleLocationSelected = (location) => {
-
   latitude.value = location.latitude;
   longitude.value = location.longitude;
-
-  console.log('Ubicación recibida desde hijo:', {
-    lat: latitude.value,
-    lng: longitude.value
-  });
-
 };
 
-/**
- * Submit registro
- */
 const submit = async () => {
-
   msg.value = null;
+
+  if (!username.value.trim() || !password.value) {
+    msg.value = 'Completa usuario y contraseña.';
+    show({ message: 'Completa usuario y contraseña.', severity: 'warning', autoHideMs: 4000 });
+    return;
+  }
+
+  if (latitude.value == null || longitude.value == null) {
+    msg.value = 'Selecciona una ubicación en el mapa.';
+    show({ message: 'Selecciona una ubicación en el mapa.', severity: 'warning', autoHideMs: 4000 });
+    return;
+  }
+
+  const payload = {
+    username: username.value.trim(),
+    password: password.value,
+    latitude: latitude.value,
+    longitude: longitude.value,
+  };
+
   loading.value = true;
 
   try {
+    await register(payload);
 
-    // Payload temporal
-    console.log({
-      username: username.value,
-      password: password.value,
-      latitude: latitude.value,
-      longitude: longitude.value
+    show({
+      message: 'Cuenta creada exitosamente. Iniciando sesión...',
+      severity: 'success',
+      autoHideMs: 3000
     });
 
-    msg.value = 'Usuario registrado correctamente';
-
-    setTimeout(() => {
-      router.push('/login');
-    }, 1000);
-
+    setTimeout(() => { router.push('/home'); }, 500);
   } catch (err) {
-
     console.error(err);
-    msg.value = 'Ocurrió un error al registrar el usuario';
-
+    msg.value = getregisterError(err);
   } finally {
-
     loading.value = false;
-
   }
-
 };
 </script>
 

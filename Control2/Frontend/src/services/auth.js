@@ -1,66 +1,78 @@
-const STORAGE_KEY = 'app_token';
+import api from './http-common.js';
 
-// Lista de funciones de callback que se llamarán cada vez que el token cambie (setToken se llame)
 const subscribers = [];
 
-// Parsea un JWT para extraer su payload. Si el token no es válido, devuelve null.
-function parseJwt(token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => {
-          const hex = (`00${c.codePointAt(0).toString(16)}`).slice(-2);
-          return `%${hex}`;
-        })
-        .join(''),
-    );
-    return JSON.parse(jsonPayload);
-  } 
-    // Si el token no es un JWT válido o no tiene un payload decodificable, atrapamos el error y devolvemos null
-    catch (error_) { console.debug(error_); return null;
-  }
+let currentUser = null;
+
+function notify() {
+	subscribers.forEach((subscriber) => subscriber(currentUser));
 }
 
-
-export function setToken(token) {
-  if (token) {
-    localStorage.setItem(STORAGE_KEY, token);
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  subscribers.forEach((s) => s());
+export function subscribe(callback) {
+	subscribers.push(callback);
+	return () => {
+		const index = subscribers.indexOf(callback);
+		if (index >= 0) {
+			subscribers.splice(index, 1);
+		}
+	};
 }
 
-// Devuelve el token de acceso almacenado en localStorage, o null si no hay ninguno
-export function getToken() {
-  return localStorage.getItem(STORAGE_KEY) || localStorage.getItem('access_token');
-}
-
-// Devuelve la información del usuario decodificada del token JWT, o null si no hay token o el token no es válido
 export function getUser() {
-  const token = getToken();
-  if (!token) return null;
-  return parseJwt(token);
+	return currentUser;
 }
 
-// Permite a los componentes suscribirse a cambios en el token. Devuelve una función de limpieza para cancelar la suscripción.
-export function subscribe(cb) {
-  subscribers.push(cb);
-  return () => {
-    const idx = subscribers.indexOf(cb);
-    if (idx >= 0) subscribers.splice(idx, 1);
-  };
+export function isAuthenticated() {
+	return !!currentUser;
 }
 
-// Limpia todos los tokens y datos de sesión almacenados
+function setSession(user) {
+	currentUser = user;
+	notify();
+}
+
 export function clearSession() {
-  setToken(null); // Esto limpia 'app_token' y avisa a los subscribers
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
+	setSession(null);
 }
 
-export default { setToken, getToken, getUser, subscribe, clearSession };
+export async function restoreSession() {
+	try {
+		const response = await api.get('/api/auth/me');
+		setSession({ username: response.data.username });
+		return currentUser;
+	} catch (error) {
+		clearSession();
+		return null;
+	}
+}
+
+export async function login(payload) {
+	const response = await api.post('/api/auth/login', payload);
+	setSession({ username: response.data.username });
+	return response.data;
+}
+
+export async function register(payload) {
+	const response = await api.post('/api/auth/register', payload);
+	setSession({ username: response.data.username });
+	return response.data;
+}
+
+export async function logout() {
+	try {
+		await api.post('/api/auth/logout');
+	} finally {
+		clearSession();
+	}
+}
+
+export default {
+	subscribe,
+	getUser,
+	isAuthenticated,
+	restoreSession,
+	login,
+	register,
+	logout,
+	clearSession,
+};

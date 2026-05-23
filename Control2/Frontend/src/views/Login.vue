@@ -57,42 +57,16 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router'; 
-import api from '../services/http-common';
-import { useAlert } from '../components/Alerts/useAlert';
-import { setToken } from '../services/auth.js';
+import { useRouter } from 'vue-router';
+import { login } from '../services/auth.js';
+import { useAlert } from '../components/Alerts/useAlert.js';
 
 const router = useRouter();
 const { show } = useAlert();
-
-// Variables reactivas --> se accede a ellas con .value
 const identifier = ref('');
 const password = ref('');
 const loading = ref(false);
 const msg = ref(null);
-
-// Lógica de guardado de token
-const storeAuthData = (data) => {
-  if (!data) return;
-  if (data.access_token) {
-    localStorage.setItem('access_token', data.access_token);
-    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-    setToken(data.access_token);
-  } else if (data.token?.access_token) {
-    localStorage.setItem('access_token', data.token.access_token);
-    if (data.token.refresh_token) localStorage.setItem('refresh_token', data.token.refresh_token);
-    localStorage.setItem('app_token', data.token.access_token);
-    setToken(data.token.access_token);
-  }
-  if (data.user) {
-    localStorage.setItem('user', JSON.stringify(data.user));
-  } else if (data.name || data.email) {
-    localStorage.setItem('user', JSON.stringify({
-      name: data.name || data.email,
-      email: data.email
-    }));
-  }
-};
 
 const getLoginError = (err) => {
   if (err.response?.status === 401){
@@ -111,11 +85,13 @@ const getLoginError = (err) => {
     });
     return 'El usuario ingresado no se encuentra registrado.\nCrea tu cuenta ahora mismo presionando el botón:\n"Crear cuenta".';
   }
-  show ({
+  
+  show({
     message: 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo más tarde.',
     severity: 'warning',
     autoHideMs: 4000
   });
+  return 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo más tarde.';
 };
 
 const goToRegister = () => {
@@ -127,18 +103,17 @@ const submit = async () => {
   loading.value = true;
   
   try {
-    const resp = await api.post('/api/auth/login', { 
-      email: identifier.value, 
-      password: password.value 
+    await login({
+      username: identifier.value.trim(),
+      password: password.value,
     });
-    
-    const data = resp.data;
-    const userName = data?.user?.name || data?.name || identifier.value;
-    
-    storeAuthData(data);
-    
-    show({ message: `¡Bienvenido ${userName}! Sesión iniciada correctamente`, severity: 'success', autoHideMs: 3500 });
-    
+
+    show({
+      message: 'Sesión iniciada correctamente.',
+      severity: 'success',
+      autoHideMs: 3000
+    });
+
     setTimeout(() => { router.push('/home'); }, 500);
     
   } catch (err) {

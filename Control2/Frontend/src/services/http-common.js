@@ -1,32 +1,20 @@
-import axios from "axios";
+import axios from 'axios';
 
-// Creamos la instancia base de Axios
-const httpClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // http://localhost:8090/api/v1
+const backendServer = import.meta.env.VITE_BACKEND_SERVER;
+const backendPort = import.meta.env.VITE_BACKEND_PORT;
+
+const baseURL = (backendServer && backendPort)
+  ? `${backendServer}:${backendPort}`
+  : (import.meta.env.VITE_API_URL || 'http://localhost:8080');
+
+const api = axios.create({
+  baseURL,
   headers: {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
 
-/**
- * Interceptor para añadir el Token de Keycloak en cada petición.
- * Esto evita tener que pasar el token manualmente en cada service.
- */
-httpClient.interceptors.request.use(
-  (config) => {
-    // Obtenemos el token guardado en el almacenamiento local o sesión
-    // Nota: Dependiendo de tu implementación en main.jsx, podrías necesitar
-    // acceder al objeto keycloak globalmente o pasar el token aquí.
-    const token = window._keycloak?.token; 
+export const apiBaseUrl = baseURL;
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-export default httpClient;
+export default api;
