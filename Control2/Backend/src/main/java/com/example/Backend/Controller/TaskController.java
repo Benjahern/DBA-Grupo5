@@ -1,21 +1,27 @@
 package com.example.Backend.Controller;
 
 import com.example.Backend.Entity.TaskEntity;
+import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Service.TaskService;
+import com.example.Backend.Service.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.List;
 
 @Controller
 @RequestMapping("/api/task")
 public class TaskController {
 
     private final TaskService taskService;
+    private final UserService userService; // Agregamos el servicio de usuarios
 
-    public TaskController(TaskService taskService) {
+    // Actualizamos el constructor para inyectar ambos servicios
+    public TaskController(TaskService taskService, UserService userService) {
         this.taskService = taskService;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -31,7 +37,16 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<TaskEntity> createTask(@RequestBody TaskEntity task){
+    public ResponseEntity<TaskEntity> createTask(@RequestBody TaskEntity task, Authentication authentication){
+        // 1. Extraemos el email/username del usuario que inició sesión desde el Token JWT
+        String userEmail = authentication.getName();
+
+        // 2. Buscamos el registro correspondiente en la base de datos
+        UserEntity currentUser = userService.getUserByEmail(userEmail);
+
+        // 3. Forzamos que la tarea pertenezca al ID del usuario autenticado de forma segura
+        task.setUserID(currentUser.getId());
+
         TaskEntity newTask = taskService.create(task);
         return ResponseEntity.ok(newTask);
     }
