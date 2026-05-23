@@ -2,11 +2,10 @@ package com.example.Backend.Entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Point;
+import lombok.*;
 import java.util.List;
+import org.locationtech.jts.geom.Point;
+
 
 @Entity
 @Data
@@ -18,8 +17,15 @@ public class UserEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
-    String name;
+
+    @Column(name = "username")
+    String userName;
+
+    @Column(name = "email")
     String email;
+
+
+    @Column(name= "pass")
     String password;
 
     @Column(columnDefinition = "geometry(Point, 4326)")

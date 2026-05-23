@@ -13,18 +13,27 @@ java {
 	}
 }
 
+configurations {
+	annotationProcessor {
+		extendsFrom compileOnly
+	}
+}
+
 repositories {
 	mavenCentral()
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter'
+	compileOnly 'org.projectlombok:lombok'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
-	implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
-	implementation 'org.hibernate.orm:hibernate-spatial'
-	implementation 'com.bedatadriven:jackson-datatype-jts:2.4'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+	implementation 'org.locationtech.jts:jts-core:1.19.0'
+	implementation 'org.hibernate.orm:hibernate-spatial:7.2.12.Final'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	runtimeOnly 'org.postgresql:postgresql'

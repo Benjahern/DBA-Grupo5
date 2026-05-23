@@ -111,7 +111,7 @@ public class TaskService {
         data.setId(task.getId());
         data.setTitle(task.getTitle());
         data.setDescription(task.getDescription());
-        data.setUsername(user.getName());
+        data.setUsername(user.getUserName());
         data.setSector(sector.getName());
         data.setCreationDate(creationDateString);
         data.setDueDate(dueDateSting);
