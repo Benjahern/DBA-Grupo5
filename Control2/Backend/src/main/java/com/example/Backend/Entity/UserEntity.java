@@ -33,4 +33,8 @@ public class UserEntity {
 
     @ElementCollection
     List<Long> taskList = new java.util.ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles")
+    private Set<String> roles = new HashSet<>();
 }

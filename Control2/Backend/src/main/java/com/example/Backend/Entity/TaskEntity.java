@@ -14,11 +14,27 @@ public class TaskEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
+
+    @Column(name = "title")
     String title;
+
+    @Column(name = "description")
     String description;
+
+    @Column(name = "creation_date")
     LocalDate creationDate;
+
+    @Column(name = "due_date")
     LocalDate dueDate;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
     Long userID;
+
+    @ManyToOne
+    @JoinColumn(name = "sector_id")
     Long sectorID;
+
+    @Column(name = "status")
     String status; // Los estados son vigente, atrasado, completado y completadoAtrasado
 }

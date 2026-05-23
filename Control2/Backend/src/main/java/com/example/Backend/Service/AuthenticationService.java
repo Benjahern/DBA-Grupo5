@@ -44,6 +44,7 @@ public class AuthenticationService {
         user.setUserName(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRoles(Set.of("CLIENTE")); 
 
         //para cumplir con el requisito de ingresar su direccion geografica
         GeometryFactory geometryFactory = new GeometryFactory();
