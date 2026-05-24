@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Set;
 
 @Service
 public class AuthenticationService {
@@ -36,7 +37,7 @@ public class AuthenticationService {
     }
 
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.findByUserName(request.getUsername()) != null) {
+        if (userRepository.findByUserName(request.getUsername()).isPresent()) {
             throw new RuntimeException("El usuario ya existe");
         }
 
@@ -59,13 +60,9 @@ public class AuthenticationService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        UserEntity user = userRepository.findByUserName(request.getUsername());
-        if (user == null) {
-            user = userRepository.findByEmail(request.getUsername());
-        }
-        if (user == null) {
-            throw new RuntimeException("Usuario no encontrado");
-        }
+        UserEntity user = userRepository.findByUserName(request.getUsername())
+                .or(() -> userRepository.findByEmail(request.getUsername())) // .or() encadena otro Optional
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado")); // Si ninguno existe, lanza excepción
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Password incorrecto");

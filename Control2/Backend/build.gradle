@@ -32,6 +32,7 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
 	implementation 'org.locationtech.jts:jts-core:1.19.0'
 	implementation 'org.hibernate.orm:hibernate-spatial:7.2.12.Final'
+	implementation 'com.bedatadriven:jackson-datatype-jts:2.4'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
@@ -42,6 +43,7 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok:1.18.38'
 	testCompileOnly 'org.projectlombok:lombok:1.18.38'
 	testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
+
 }
 
 tasks.named('test') {

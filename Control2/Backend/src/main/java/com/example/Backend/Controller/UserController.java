@@ -28,9 +28,9 @@ public class UserController {
     @PostMapping("/register")
     public ResponseEntity<UserEntity> registerUser(@RequestBody UserRegisterDTO registerDTO) {
         UserEntity user = new UserEntity();
-        user.setName(registerDTO.getName());
+        user.setUserName(registerDTO.getName());
         user.setEmail(registerDTO.getEmail());
-        user.setPassword(registerDTO.getPassword()); // Aquí idealmente aplicarías BCrypt posteriormente
+        user.setPassword(registerDTO.getPassword());
 
         // Conversión matemática de Lat/Lng a Point (PostGIS SRID 4326)
         GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);

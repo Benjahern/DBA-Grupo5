@@ -27,11 +27,9 @@ public class TaskEntity {
     @Column(name = "due_date")
     LocalDate dueDate;
 
-    @ManyToOne
     @JoinColumn(name = "user_id")
     Long userID;
 
-    @ManyToOne
     @JoinColumn(name = "sector_id")
     Long sectorID;
 
