@@ -60,6 +60,9 @@ import {
   LMarker
 } from '@vue-leaflet/vue-leaflet';
 
+// Emite evento al componente padre
+const emit = defineEmits(['location-selected']);
+
 // CSS Leaflet
 import 'leaflet/dist/leaflet.css';
 
@@ -94,9 +97,9 @@ const handleMapClick = (event) => {
     longitude.value
   ];
 
-  console.log('Ubicación seleccionada:', {
-    lat: latitude.value,
-    lng: longitude.value
+  emit('location-selected', {
+    latitude: latitude.value,
+    longitude: longitude.value
   });
 
 };
@@ -131,9 +134,9 @@ const getCurrentLocation = () => {
       // Zoom más cercano
       zoom.value = 16;
 
-      console.log('Ubicación actual:', {
-        lat: latitude.value,
-        lng: longitude.value
+      emit('location-selected', {
+        latitude: latitude.value,
+        longitude: longitude.value
       });
 
     },

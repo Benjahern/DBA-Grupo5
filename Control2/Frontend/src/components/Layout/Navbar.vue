@@ -6,35 +6,27 @@
       <div class="notification-container">
         <button class="bell-btn" @click="toggleNotifications" title="Notificaciones">
           🔔
-          <span class="bell-badge">3</span>
+          <span v-if="expiringTasks.length > 0" class="bell-badge">{{ expiringTasks.length }}</span>
         </button>
 
         <div v-if="showNotifications" class="notifications-dropdown">
           <div class="dropdown-header">
-            <h3>Notificaciones</h3>
+            <h3>Tareas por vencer</h3>
           </div>
           <div class="dropdown-body">
-            <div class="notification-item unread">
-              <span class="notification-icon">📍</span>
-              <div class="notification-content">
-                <p><strong>Nuevo Sector:</strong> Se ha registrado el Sector 4 en Puente Alto.</p>
-                <span class="notification-time">Hace 5 min</span>
-              </div>
+            <div v-if="expiringTasks.length === 0" class="no-notifications">
+              No hay tareas por vencer
             </div>
 
-            <div class="notification-item unread">
-              <span class="notification-icon">🛠️</span>
+            <div
+              v-for="task in expiringTasks"
+              :key="task.id"
+              class="notification-item unread"
+            >
+              <span class="notification-icon">⏰</span>
               <div class="notification-content">
-                <p><strong>Tarea Asignada:</strong> Revisar la topología de zonas inválidas en PostGIS.</p>
-                <span class="notification-time">Hace 20 min</span>
-              </div>
-            </div>
-
-            <div class="notification-item">
-              <span class="notification-icon">✅</span>
-              <div class="notification-content">
-                <p><strong>Actualización exitosa:</strong> Vista materializada de recursos globales refrescada.</p>
-                <span class="notification-time">Hace 1 hora</span>
+                <p><strong>{{ task.title }}</strong> vence hoy</p>
+                <span class="notification-time">{{ task.dueDate }}</span>
               </div>
             </div>
           </div>
@@ -52,25 +44,32 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router' // Importamos el manejador de rutas de Vue
+import { useRouter } from 'vue-router'
+import api from '../../services/http-common'
 
 const router = useRouter()
 const showNotifications = ref(false)
+const expiringTasks = ref([])
+let pollingInterval = null
+
+const fetchExpiringTasks = async () => {
+  try {
+    const response = await api.get('/api/tasks/expiring')
+    expiringTasks.value = response.data
+  } catch (error) {
+    console.error('Error fetching expiring tasks:', error)
+  }
+}
 
 const toggleNotifications = () => {
   showNotifications.value = !showNotifications.value
 }
 
-// Simulación del flujo de salida
 const handleLogout = () => {
-  // Por ahora sin lógica pesada (aquí irá luego keycloak.logout() o localStorage.clear())
-  console.log('Redireccionando al Login para comprobar flujo...')
-  
-  // Asume que tu ruta de login se llama 'login' o tiene el path '/login'
-  router.push('/login') 
+  console.log('Redireccionando al Login...')
+  router.push('/login')
 }
 
-// Lógica para cerrar el menú si el usuario hace clic fuera de la campana
 const closeDropdown = (e) => {
   if (!e.target.closest('.notification-container')) {
     showNotifications.value = false
@@ -79,10 +78,13 @@ const closeDropdown = (e) => {
 
 onMounted(() => {
   window.addEventListener('click', closeDropdown)
+  fetchExpiringTasks()
+  pollingInterval = setInterval(fetchExpiringTasks, 300000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', closeDropdown)
+  if (pollingInterval) clearInterval(pollingInterval)
 })
 </script>
 
@@ -233,6 +235,13 @@ onUnmounted(() => {
 .notification-time {
   font-size: 0.75rem;
   color: #94a3b8;
+}
+
+.no-notifications {
+  padding: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 
 /* ==========================================================================

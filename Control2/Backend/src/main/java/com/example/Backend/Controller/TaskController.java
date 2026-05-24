@@ -5,6 +5,7 @@ import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Service.TaskService;
 import com.example.Backend.Service.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -44,12 +45,13 @@ public class TaskController {
         // 2. Buscamos el registro correspondiente en la base de datos
         UserEntity currentUser = userService.getUserByEmail(userEmail);
 
-        // 3. Forzamos que la tarea pertenezca al ID del usuario autenticado de forma segura
-        task.setUserID(currentUser.getId());
+        // 3. Forzamos que la tarea pertenezca al usuario autenticado de forma segura
+        task.setUser(currentUser);
 
         TaskEntity newTask = taskService.create(task);
         return ResponseEntity.ok(newTask);
     }
+
 
     @PutMapping("/update")
     public ResponseEntity<TaskEntity> updateTask(@RequestBody TaskEntity task){
@@ -87,4 +89,10 @@ public class TaskController {
         List<TaskEntity> taskList = taskService.getByStatusAndKeyword(status, keyword);
         return ResponseEntity.ok(taskList);
     }
+
+    @GetMapping("/expiring")
+    public ResponseEntity<List<TaskEntity>> getExpiringTasks() {
+        return ResponseEntity.ok(taskService.getTasksExpiringSoon());
+    }
+
 }

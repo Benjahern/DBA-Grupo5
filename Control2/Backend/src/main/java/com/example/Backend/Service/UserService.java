@@ -27,6 +27,6 @@ public class UserService {
     }
 
     public UserEntity getUserByEmail(String email) {
-        return userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        return userRepository.findByEmail(email);
     }
 }

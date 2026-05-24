@@ -29,11 +29,11 @@ public class TaskEntity {
 
     @ManyToOne
     @JoinColumn(name = "user_id")
-    Long userID;
+    UserEntity user;
 
     @ManyToOne
     @JoinColumn(name = "sector_id")
-    Long sectorID;
+    SectorEntity sector;
 
     @Column(name = "status")
     String status; // Los estados son vigente, atrasado, completado y completadoAtrasado

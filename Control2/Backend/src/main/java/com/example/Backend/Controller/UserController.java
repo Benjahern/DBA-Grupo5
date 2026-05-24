@@ -1,6 +1,5 @@
 package com.example.Backend.Controller;
 
-import com.example.Backend.DTO.UserRegisterDTO;
 import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Service.UserService;
 import org.locationtech.jts.geom.Coordinate;
@@ -25,20 +24,7 @@ public class UserController {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<UserEntity> registerUser(@RequestBody UserRegisterDTO registerDTO) {
-        UserEntity user = new UserEntity();
-        user.setName(registerDTO.getName());
-        user.setEmail(registerDTO.getEmail());
-        user.setPassword(registerDTO.getPassword()); // Aquí idealmente aplicarías BCrypt posteriormente
 
-        // Conversión matemática de Lat/Lng a Point (PostGIS SRID 4326)
-        GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-        Point point = geometryFactory.createPoint(new Coordinate(registerDTO.getLongitude(), registerDTO.getLatitude()));
-        user.setGeoLocation(point);
-
-        return ResponseEntity.ok(userService.create(user));
-    }
 
     @GetMapping("/{id}")
     public ResponseEntity<UserEntity> getUser(@PathVariable Long id) {

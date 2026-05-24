@@ -6,7 +6,7 @@
 
       <form @submit.prevent="submit" class="form-grid">
 
-        <!-- USERNAME -->
+        <!-- USERNAME Y EMAIL -->
         <div class="input-row">
 
           <div class="input-group">
@@ -36,7 +36,37 @@
             </div>
           </div>
 
-          <!-- PASSWORD -->
+          <div class="input-group">
+            <label for="register-email">
+              Correo electrónico
+            </label>
+
+            <div class="input-container">
+              <span class="icon" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg"
+                     width="16"
+                     height="16"
+                     fill="currentColor"
+                     viewBox="0 0 16 16">
+                  <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383l-4.758 2.855L15 11.114v-5.73zm-.034 6.878L9.643 8.03 8 12.317l1.643-1.484zm3.574-6.671a.533.533 0 0 0-.493.12l-3.522 2.09 2.402 1.453 4.29-2.088a.533.533 0 0 0-.277-.469l-3.18-.004z"/>
+                </svg>
+              </span>
+
+              <input
+                id="register-email"
+                type="email"
+                v-model="email"
+                placeholder="tu correo electrónico"
+                required
+              />
+            </div>
+          </div>
+
+        </div>
+
+        <!-- PASSWORD -->
+        <div class="input-row">
+
           <div class="input-group">
             <label for="register-password">
               Contraseña
@@ -143,6 +173,7 @@ const router = useRouter();
 const { show } = useAlert();
 
 const username = ref('');
+const email = ref('');
 const password = ref('');
 const loading = ref(false);
 const msg = ref(null);
@@ -197,9 +228,9 @@ const handleLocationSelected = (location) => {
 const submit = async () => {
   msg.value = null;
 
-  if (!username.value.trim() || !password.value) {
-    msg.value = 'Completa usuario y contraseña.';
-    show({ message: 'Completa usuario y contraseña.', severity: 'warning', autoHideMs: 4000 });
+  if (!username.value.trim() || !password.value || !email.value.trim()) {
+    msg.value = 'Completa usuario, email y contraseña.';
+    show({ message: 'Completa usuario, email y contraseña.', severity: 'warning', autoHideMs: 4000 });
     return;
   }
 
@@ -211,6 +242,7 @@ const submit = async () => {
 
   const payload = {
     username: username.value.trim(),
+    email: email.value.trim(),
     password: password.value,
     latitude: latitude.value,
     longitude: longitude.value,

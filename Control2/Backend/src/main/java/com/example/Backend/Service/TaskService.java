@@ -43,7 +43,7 @@ public class TaskService {
         if ((oldTask.getStatus().equals("completado")) || oldTask.getStatus().equals("completadoAtrasado")) {
             throw new RuntimeException("La tarea yá está completada");
         } else {
-            SectorEntity sector = getSector(updatedTask.getSectorID()); //Se actualiza las lista de TaskData de cada sector
+            SectorEntity sector = getSector(updatedTask.getSector().getId()); //Se actualiza las lista de TaskData de cada sector
             List<TaskData> sectorTaskDataList = sector.getTaskList();
             deleteTaskData(sectorTaskDataList, updatedTask.getId());
             TaskData updatedTaskData = createTaskData(updatedTask);
@@ -72,7 +72,7 @@ public class TaskService {
     }
 
     public List<TaskEntity> getBySector(Long id) {
-        return taskRepository.findBySectorID(id);
+        return taskRepository.findBySector_Id(id);
     }
 
     public List<TaskEntity> getByStatus(String status) {
@@ -105,8 +105,8 @@ public class TaskService {
     private TaskData createTaskData(TaskEntity task) {
         String dueDateSting = task.getDueDate().toString();
         String creationDateString = task.getCreationDate().toString();
-        UserEntity user = getUser(task.getUserID());
-        SectorEntity sector = getSector(task.getSectorID());
+        UserEntity user = getUser(task.getUser().getId());
+        SectorEntity sector = getSector(task.getSector().getId());
         TaskData data = new TaskData();
         data.setId(task.getId());
         data.setTitle(task.getTitle());
@@ -136,4 +136,16 @@ public class TaskService {
     private SectorEntity getSector(Long id) {
         return sectorRepository.findById(id).orElseThrow();
     }
+
+
+    public List<TaskEntity> getTasksExpiringSoon() {
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+        return taskRepository.findByDueDateBetween(today, tomorrow)
+                .stream()
+                .filter(t -> !t.getStatus().equals("completado")
+                        && !t.getStatus().equals("completadoAtrasado"))
+                .toList();
+    }
+
 }
