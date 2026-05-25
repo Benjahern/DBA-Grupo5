@@ -2,11 +2,11 @@ package com.example.Backend.Entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.locationtech.jts.geom.Polygon;
 
-import org.locationtech.jts.geom.Point;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -21,10 +21,10 @@ public class SectorEntity {
     Long id;
     String name;
 
-    @Column(columnDefinition = "geometry(Point, 4326)")
-    private Point geoLocation;
+    @Column(columnDefinition = "geometry(Polygon, 4326)")
+    private Polygon geoLocation;
 
     @ElementCollection
-    @CollectionTable(name = "sector_tasks", joinColumns = @JoinColumn(name = "task_id"))
-    List<TaskData> taskList = new java.util.ArrayList<>();
+    @CollectionTable(name = "sector_tasks", joinColumns = @JoinColumn(name = "sector_id"))
+    List<TaskData> taskList = new ArrayList<>();
 }
