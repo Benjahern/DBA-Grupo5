@@ -259,7 +259,7 @@ const submit = async () => {
       autoHideMs: 3000
     });
 
-    setTimeout(() => { router.push('/home'); }, 500);
+    setTimeout(() => { router.push('/dashboard'); }, 500);
   } catch (err) {
     console.error(err);
     msg.value = getregisterError(err);
