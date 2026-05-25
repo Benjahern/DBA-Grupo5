@@ -7,12 +7,27 @@
     <div class="sidebar">
       <div class="sidebar-header">
         <h1>Crear Sectores</h1>
-        <p>Dibuja polígonos en el mapa para crear nuevos sectores.</p>
+        <p>Dibuja polígonos en el mapa y asígnales un nombre para guardarlos.</p>
+      </div>
+
+      <div class="controls-container">
+        <input 
+          v-model="newSectorName" 
+          placeholder="Nombre del nuevo sector" 
+          class="input-name" 
+        />
+        <button 
+          @click="saveSector" 
+          :disabled="sectors.length === 0 || !newSectorName" 
+          class="save-btn"
+        >
+          Guardar Sector en Base de Datos
+        </button>
       </div>
 
       <div class="sectors-list">
         <div v-if="sectors.length === 0" class="empty-state">
-          Aún no has creado sectores.
+          Aún no has dibujado ningún sector.
         </div>
 
         <div v-for="sector in sectors" :key="sector.id" class="sector-card">
@@ -40,16 +55,16 @@
 import { onMounted, ref } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import api from '@/services/http-common.js' // Asegúrate de que esta ruta sea correcta
 
 // Importamos Leaflet Draw nativo desde node_modules
 import 'leaflet-draw'
 import 'leaflet-draw/dist/leaflet.draw.css'
 
 const sectors = ref([])
+const newSectorName = ref('')
 
 onMounted(() => {
-  // CONFIGURACIÓN LOCAL AISLADA: No guardamos mapInstance ni drawnItems en variables globales externas 
-  // de la vista, logrando que Vue 3 no rompa la propagación de clics de Leaflet Draw modernos (v1.x)
   const mapInstance = L.map('map').setView([-33.5984, -70.5758], 13)
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -62,12 +77,12 @@ onMounted(() => {
   const drawControl = new L.Control.Draw({
     draw: {
       polygon: {
-        allowIntersection: false, // Regla espacial obligatoria para geometrías topológicas en PostGIS
+        allowIntersection: false,
         showArea: true,
         guidelineDistance: 10,
         shapeOptions: {
           clickable: true,
-          color: '#9333ea' // Púrpura estilizado para tus polígonos
+          color: '#9333ea'
         }
       },
       polyline: false,
@@ -82,7 +97,6 @@ onMounted(() => {
   })
   mapInstance.addControl(drawControl)
 
-  // 1. Capturar la creación del elemento
   mapInstance.on(L.Draw.Event.CREATED, (event) => {
     const layer = event.layer
     drawnItems.addLayer(layer)
@@ -90,27 +104,22 @@ onMounted(() => {
     const latlngs = layer.getLatLngs()[0]
     const uniquePoints = latlngs.map(point => [point.lat, point.lng])
 
-    // Guardamos los datos puros en el arreglo reactivo usando L.stamp(layer)
-    // para tener una llave única que no involucre Proxies de Vue sobre objetos DOM complejos
     sectors.value.push({
       id: sectors.value.length + 1,
       layerId: L.stamp(layer),
       points: uniquePoints
     })
 
-    // Enlazar listeners para actualizar el panel de coordenadas en tiempo real durante arrastres
     layer.on('edit', () => { updateLayerPoints(layer) })
     layer.on('editdrag', () => { updateLayerPoints(layer) })
   })
 
-  // 2. Evento cuando el usuario confirma la edición general (botón Save de la herramienta)
   mapInstance.on(L.Draw.Event.EDITED, (event) => {
     event.layers.eachLayer((layer) => {
       updateLayerPoints(layer)
     })
   })
 
-  // 3. Evento al borrar un sector mediante la interfaz del mapa
   mapInstance.on(L.Draw.Event.DELETED, (event) => {
     event.layers.eachLayer((layer) => {
       const targetId = L.stamp(layer)
@@ -118,7 +127,6 @@ onMounted(() => {
     })
   })
 
-  // Función interna encargada de recalcular los puntos mutados en el panel derecho en tiempo real
   function updateLayerPoints(layer) {
     const currentId = L.stamp(layer)
     const latlngs = layer.getLatLngs()[0]
@@ -133,14 +141,30 @@ onMounted(() => {
 })
 
 /**
- * Convierte coordenadas a formato WKT POLYGON (Útil para tus pruebas con PostGIS)
+ * Envía el último sector dibujado al backend
  */
-function convertToWKT(points) {
-  const coordinates = points.map(point => `${point[1]} ${point[0]}`) // long lat
-  if (coordinates.length > 0) {
-    coordinates.push(coordinates[0]) // PostGIS exige duplicar el primer punto al final para cerrar el anillo
+const saveSector = async () => {
+  if (sectors.value.length === 0 || !newSectorName.value) return
+
+  const sectorToSave = sectors.value[sectors.value.length - 1]
+  
+  // Transformación al formato JSON esperado por el backend
+  const payload = {
+    name: newSectorName.value,
+    coordinates: sectorToSave.points.map(p => ({
+      latitude: p[0],
+      longitude: p[1]
+    }))
   }
-  return `POLYGON((${coordinates.join(', ')}))`
+
+  try {
+    await api.post('/api/sectors', payload)
+    alert('Sector "' + newSectorName.value + '" guardado con éxito.')
+    newSectorName.value = '' // Limpiar campo
+  } catch (error) {
+    console.error('Error al guardar:', error)
+    alert('No se pudo guardar el sector.')
+  }
 }
 </script>
 
@@ -186,6 +210,45 @@ function convertToWKT(points) {
   margin-top: 10px;
   color: #a3a3a3;
   line-height: 1.5;
+}
+
+/* Nuevos estilos para los controles de guardado */
+.controls-container {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-bottom: 1px solid #2c2c2c;
+}
+
+.input-name {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #323232;
+  background: #1a1a1a;
+  color: white;
+  font-size: 14px;
+}
+
+.save-btn {
+  padding: 12px;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.save-btn:hover:not(:disabled) {
+  background-color: #7c3aed;
+}
+
+.save-btn:disabled {
+  background-color: #374151;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .sectors-list {
