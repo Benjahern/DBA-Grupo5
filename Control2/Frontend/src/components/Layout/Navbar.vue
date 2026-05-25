@@ -33,7 +33,7 @@
         </div>
       </div>
 
-      <span>Usuario</span>
+      <span>{{ displayUsername }}</span>
 
       <button class="logout-btn" @click="handleLogout">
         Cerrar sesión
@@ -43,18 +43,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../services/http-common'
+import { getUser, logout, restoreSession, subscribe } from '../../services/auth.js'
+import { useAlert } from '../Alerts/useAlert.js'
 
 const router = useRouter()
+const user = ref(getUser())
+const { show } = useAlert()
 const showNotifications = ref(false)
 const expiringTasks = ref([])
 let pollingInterval = null
+let unsubscribe = null
+
+const displayUsername = computed(() => user.value?.username || 'Usuario')
 
 const fetchExpiringTasks = async () => {
   try {
-    const response = await api.get('/api/tasks/expiring')
+    const response = await api.get('/api/task/expiring')
     expiringTasks.value = response.data
   } catch (error) {
     console.error('Error fetching expiring tasks:', error)
@@ -65,9 +72,16 @@ const toggleNotifications = () => {
   showNotifications.value = !showNotifications.value
 }
 
-const handleLogout = () => {
-  console.log('Redireccionando al Login...')
-  router.push('/login')
+const handleLogout = async () => {
+  try {
+    await logout()
+    show({ message: 'Sesión cerrada correctamente.', severity: 'success', autoHideMs: 3000 })
+  } catch (error) {
+    console.error('Error logout:', error)
+    show({ message: 'No se pudo cerrar la sesión.', severity: 'error', autoHideMs: 4000 })
+  } finally {
+    router.push('/login')
+  }
 }
 
 const closeDropdown = (e) => {
@@ -80,11 +94,18 @@ onMounted(() => {
   window.addEventListener('click', closeDropdown)
   fetchExpiringTasks()
   pollingInterval = setInterval(fetchExpiringTasks, 300000)
+  restoreSession().finally(() => {
+    user.value = getUser()
+  })
+  unsubscribe = subscribe((nextUser) => {
+    user.value = nextUser
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', closeDropdown)
   if (pollingInterval) clearInterval(pollingInterval)
+  if (unsubscribe) unsubscribe()
 })
 </script>
 

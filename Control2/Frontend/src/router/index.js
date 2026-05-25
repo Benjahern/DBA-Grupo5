@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { isAuthenticated, restoreSession } from '../services/auth.js'
 
 // Importación de vistas
 import LoginView from '../views/Login.vue'
@@ -29,10 +30,11 @@ const routes = [
     component: RegisterView
   },
 
-  // Privadas
+  // Privadas (requieren autenticación)
   {
     path: '/',
     component: MainLayout,
+    meta: { requiresAuth: true },
 
     children: [
 
@@ -64,6 +66,24 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// Guard de navegación: protege rutas que requieren autenticación
+router.beforeEach(async (to, from, next) => {
+  // Verificar si la ruta (o alguna ruta padre) requiere autenticación
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+
+  if (requiresAuth && !isAuthenticated()) {
+    // Intentar restaurar la sesión desde la cookie JWT
+    await restoreSession()
+  }
+
+  if (requiresAuth && !isAuthenticated()) {
+    // Si sigue sin estar autenticado, redirigir al login
+    next('/login')
+  } else {
+    next()
+  }
 })
 
 // Exportación

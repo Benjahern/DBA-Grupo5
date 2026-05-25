@@ -9,11 +9,17 @@
         <p>Administra las tareas geoespaciales del sistema</p>
       </div>
 
-      <button class="create-task-btn">
+      <button class="create-task-btn" @click="openModal">
         + Nueva tarea
       </button>
 
     </div>
+
+    <ModalNewTask
+      v-if="showModal"
+      @close="closeModal"
+      @created="handleTaskCreated"
+    />
 
     <!-- TOOLBAR -->
     <div class="tasks-toolbar">
@@ -48,63 +54,29 @@
       <!-- LEFT PANEL -->
       <div class="tasks-list">
 
-        <div class="task-item active">
+        <div
+          v-for="task in tasks"
+          :key="task.id"
+          class="task-item"
+          :class="{ active: task.id === selectedTaskId }"
+          @click="selectTask(task.id)"
+        >
           <div class="task-item-left">
-            <input type="checkbox" />
-            
+            <input type="checkbox" :checked="task.status === 'completado' || task.status === 'completadoAtrasado'" />
+
             <div class="task-item-info">
               <span class="task-title">
-                Inspección Sector Norte
+                {{ task.title }}
               </span>
 
               <span class="task-date">
-                📅 20 Mayo
+                📅 {{ formatDate(task.dueDate) }}
               </span>
             </div>
           </div>
 
-          <span class="task-priority high">
-            Alta
-          </span>
-        </div>
-
-        <div class="task-item">
-          <div class="task-item-left">
-            <input type="checkbox" checked />
-
-            <div class="task-item-info">
-              <span class="task-title">
-                Actualización de mapa
-              </span>
-
-              <span class="task-date">
-                📅 22 Mayo
-              </span>
-            </div>
-          </div>
-
-          <span class="task-priority medium">
-            Media
-          </span>
-        </div>
-
-        <div class="task-item">
-          <div class="task-item-left">
-            <input type="checkbox" />
-
-            <div class="task-item-info">
-              <span class="task-title">
-                Revisar sensores zona sur
-              </span>
-
-              <span class="task-date">
-                📅 25 Mayo
-              </span>
-            </div>
-          </div>
-
-          <span class="task-priority low">
-            Baja
+          <span class="task-priority" :class="statusClass(task.status)">
+            {{ statusLabel(task.status) }}
           </span>
         </div>
 
@@ -113,21 +85,20 @@
       <!-- RIGHT PANEL -->
       <div class="task-details">
 
-        <div class="task-details-card">
+        <div v-if="selectedTask" class="task-details-card">
 
           <div class="details-header">
 
             <div>
-              <h2>Inspección Sector Norte</h2>
+              <h2>{{ selectedTask.title }}</h2>
 
               <p>
-                Revisión de infraestructura y sensores
-                geoespaciales en zona norte.
+                {{ selectedTask.description || 'Sin descripcion' }}
               </p>
             </div>
 
-            <span class="status pending">
-              Pendiente
+            <span class="status" :class="statusClass(selectedTask.status)">
+              {{ statusLabel(selectedTask.status) }}
             </span>
 
           </div>
@@ -138,23 +109,23 @@
             <div class="details-grid">
 
               <div class="detail-item">
-                <span class="detail-label">Prioridad</span>
-                <span>Alta</span>
+                <span class="detail-label">Estado</span>
+                <span>{{ statusLabel(selectedTask.status) }}</span>
               </div>
 
               <div class="detail-item">
                 <span class="detail-label">Sector</span>
-                <span>Sector Norte</span>
+                <span>{{ selectedTask.sector?.name || 'Sin sector' }}</span>
               </div>
 
               <div class="detail-item">
                 <span class="detail-label">Responsable</span>
-                <span>Juan Pérez</span>
+                <span>{{ selectedTask.user?.userName || 'Sin responsable' }}</span>
               </div>
 
               <div class="detail-item">
                 <span class="detail-label">Vencimiento</span>
-                <span>20 Mayo 2026</span>
+                <span>{{ formatDate(selectedTask.dueDate) }}</span>
               </div>
 
             </div>
@@ -184,6 +155,13 @@
 
         </div>
 
+        <div v-else class="task-details-card">
+          <div class="details-section">
+            <h3>Selecciona una tarea</h3>
+            <p>Haz clic en una tarea de la izquierda para ver sus detalles.</p>
+          </div>
+        </div>
+
       </div>
 
     </div>
@@ -192,9 +170,99 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue';
+import api from '../services/http-common.js';
+import ModalNewTask from './ModalNewTask.vue';
 
-// Sin lógica por ahora
+const tasks = ref([]);
+const selectedTaskId = ref(null);
+const loading = ref(false);
+const error = ref(null);
+const showModal = ref(false);
 
+const selectedTask = computed(() =>
+  tasks.value.find((task) => task.id === selectedTaskId.value)
+);
+
+const fetchTasks = async () => {
+  loading.value = true;
+  error.value = null;
+  try {
+    const response = await api.get('/api/task');
+    tasks.value = response.data || [];
+    if (tasks.value.length > 0 && selectedTaskId.value == null) {
+      selectedTaskId.value = tasks.value[0].id;
+    }
+  } catch (err) {
+    console.error('Error fetching tasks:', err);
+    error.value = 'No se pudieron cargar las tareas.';
+  } finally {
+    loading.value = false;
+  }
+};
+
+const selectTask = (taskId) => {
+  selectedTaskId.value = taskId;
+};
+
+const openModal = () => {
+  showModal.value = true;
+};
+
+const closeModal = () => {
+  showModal.value = false;
+};
+
+const handleTaskCreated = () => {
+  fetchTasks();
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return 'Sin fecha';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString('es-CL', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const statusLabel = (status) => {
+  switch (status) {
+    case 'vigente':
+      return 'Vigente';
+    case 'atrasado':
+      return 'Atrasado';
+    case 'completado':
+      return 'Completado';
+    case 'completadoAtrasado':
+      return 'Completado atrasado';
+    default:
+      return 'Pendiente';
+  }
+};
+
+const statusClass = (status) => {
+  switch (status) {
+    case 'vigente':
+      return 'status-vigente';
+    case 'atrasado':
+      return 'status-atrasado';
+    case 'completado':
+      return 'status-completado';
+    case 'completadoAtrasado':
+      return 'status-completado-atrasado';
+    default:
+      return 'status-pendiente';
+  }
+};
+
+onMounted(fetchTasks);
 </script>
 
 <style scoped>
@@ -344,19 +412,25 @@
   font-weight: bold;
 }
 
-.high {
-  background-color: #fee2e2;
-  color: #b91c1c;
-}
-
-.medium {
+.status-vigente,
+.status-pendiente {
   background-color: #dbeafe;
   color: #1d4ed8;
 }
 
-.low {
+.status-atrasado {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-completado {
   background-color: #dcfce7;
   color: #166534;
+}
+
+.status-completado-atrasado {
+  background-color: #fef3c7;
+  color: #92400e;
 }
 
 /* RIGHT PANEL */
@@ -406,7 +480,23 @@
   font-weight: bold;
 }
 
-.pending {
+.status-vigente,
+.status-pendiente {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-atrasado {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-completado {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-completado-atrasado {
   background-color: #fef3c7;
   color: #92400e;
 }

@@ -35,6 +35,18 @@ public class TaskService {
     }
 
     public TaskEntity create(TaskEntity task) {
+        if (task.getCreationDate() == null) {
+            task.setCreationDate(LocalDate.now());
+        }
+        if (task.getDueDate() == null) {
+            throw new RuntimeException("La fecha de vencimiento es obligatoria");
+        }
+        if (task.getDueDate().isBefore(LocalDate.now())) {
+            throw new RuntimeException("La fecha de vencimiento no puede ser anterior a hoy");
+        }
+        if (task.getStatus() == null || task.getStatus().isBlank()) {
+            task.setStatus("vigente");
+        }
         return taskRepository.save(task);
     }
 

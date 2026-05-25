@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
@@ -24,28 +25,43 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
-        AuthResponse response = authenticationService.register(request);
-        return ResponseEntity.ok()
-            .header(HttpHeaders.SET_COOKIE, authenticationService.buildAuthCookie(response.getToken()).toString())
-            .body(response);
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        try {
+            AuthResponse response = authenticationService.register(request);
+            return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authenticationService.buildAuthCookie(response.getToken()).toString())
+                .body(response);
+        } catch (ResponseStatusException ex) {
+            return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of("error", ex.getReason() != null ? ex.getReason() : "Error desconocido"));
+        }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
-        AuthResponse response = authenticationService.login(request);
-        return ResponseEntity.ok()
-            .header(HttpHeaders.SET_COOKIE, authenticationService.buildAuthCookie(response.getToken()).toString())
-            .body(response);
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        try {
+            AuthResponse response = authenticationService.login(request);
+            return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, authenticationService.buildAuthCookie(response.getToken()).toString())
+                .body(response);
+        } catch (ResponseStatusException ex) {
+            return ResponseEntity.status(ex.getStatusCode())
+                .body(Map.of("error", ex.getReason() != null ? ex.getReason() : "Error desconocido"));
+        }
     }
 
     @GetMapping("/me")
-    public ResponseEntity<Map<String, String>> me(Authentication authentication) {
+        public ResponseEntity<Map<String, Object>> me(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
 
-        return ResponseEntity.ok(Map.of("username", authentication.getName()));
+        String role = authenticationService.extractRole(authentication);
+
+        return ResponseEntity.ok(Map.of(
+            "username", authentication.getName(),
+            "role", role
+        ));
     }
 
     @PostMapping("/logout")
