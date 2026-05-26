@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Data
 @Table(name = "sectors")
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class SectorEntity {
@@ -30,4 +30,11 @@ public class SectorEntity {
     @ElementCollection
     @CollectionTable(name = "sector_tasks", joinColumns = @JoinColumn(name = "sector_id"))
     List<TaskData> taskList = new ArrayList<>();
+
+    public double[] getCoordinates() {
+        if (geoLocation != null) {
+            return new double[]{geoLocation.getX(), geoLocation.getY()};
+        }
+        return null;
+    }
 }
