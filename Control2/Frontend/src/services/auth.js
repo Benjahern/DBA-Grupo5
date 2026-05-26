@@ -38,7 +38,10 @@ export function clearSession() {
 export async function restoreSession() {
 	try {
 		const response = await api.get('/api/auth/me');
-		setSession({ username: response.data.username });
+		setSession({
+			username: response.data.username,
+			role: response.data.role || null
+		});
 		return currentUser;
 	} catch (error) {
 		clearSession();
@@ -48,13 +51,19 @@ export async function restoreSession() {
 
 export async function login(payload) {
 	const response = await api.post('/api/auth/login', payload);
-	setSession({ username: response.data.username });
+	setSession({
+		username: response.data.username,
+		role: response.data.role || null
+	});
 	return response.data;
 }
 
 export async function register(payload) {
 	const response = await api.post('/api/auth/register', payload);
-	setSession({ username: response.data.username });
+	setSession({
+		username: response.data.username,
+		role: response.data.role || null
+	});
 	return response.data;
 }
 

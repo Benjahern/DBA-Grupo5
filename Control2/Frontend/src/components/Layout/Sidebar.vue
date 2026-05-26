@@ -19,7 +19,7 @@
         Notificaciones
       </router-link>
 
-      <router-link to="/sectors">
+      <router-link v-if="isAdmin" to="/sectors">
         Sectores
       </router-link>
 
@@ -27,6 +27,30 @@
 
   </aside>
 </template>
+
+<script setup>
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { getUser, restoreSession, subscribe } from '../../services/auth.js';
+
+const user = ref(getUser());
+let unsubscribe = null;
+
+const isAdmin = computed(() => user.value?.role === 'ADMIN');
+
+onMounted(async () => {
+  await restoreSession();
+  user.value = getUser();
+  unsubscribe = subscribe((nextUser) => {
+    user.value = nextUser;
+  });
+});
+
+onUnmounted(() => {
+  if (unsubscribe) {
+    unsubscribe();
+  }
+});
+</script>
 
 <style scoped>
 .sidebar {

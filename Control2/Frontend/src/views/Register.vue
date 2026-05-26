@@ -106,6 +106,45 @@
             </div>
           </div>
 
+          <div class="input-group">
+            <label for="register-confirm-password">
+              Confirmar contraseña
+            </label>
+
+            <div class="input-container">
+              <span class="icon" aria-hidden>
+                <svg width="16"
+                     height="16"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3"
+                        y="11"
+                        width="18"
+                        height="11"
+                        rx="2"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                  <path d="M7 11V8a5 5 0 0 1 10 0v3"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                </svg>
+              </span>
+
+              <input
+                id="register-confirm-password"
+                type="password"
+                v-model="confirmPassword"
+                placeholder="confirma tu contraseña"
+                required
+              />
+            </div>
+          </div>
+
         </div>
 
         <!-- LOCATION PICKER -->
@@ -175,6 +214,7 @@ const { show } = useAlert();
 const username = ref('');
 const email = ref('');
 const password = ref('');
+const confirmPassword = ref('');
 const loading = ref(false);
 const msg = ref(null);
 
@@ -228,9 +268,15 @@ const handleLocationSelected = (location) => {
 const submit = async () => {
   msg.value = null;
 
-  if (!username.value.trim() || !password.value || !email.value.trim()) {
-    msg.value = 'Completa usuario, email y contraseña.';
-    show({ message: 'Completa usuario, email y contraseña.', severity: 'warning', autoHideMs: 4000 });
+  if (!username.value.trim() || !password.value || !confirmPassword.value || !email.value.trim()) {
+    msg.value = 'Completa usuario, email y contrasena.';
+    show({ message: 'Completa usuario, email y contrasena.', severity: 'warning', autoHideMs: 4000 });
+    return;
+  }
+
+  if (password.value !== confirmPassword.value) {
+    msg.value = 'Las contrasenas no coinciden.';
+    show({ message: 'Las contrasenas no coinciden.', severity: 'warning', autoHideMs: 4000 });
     return;
   }
 
@@ -259,7 +305,7 @@ const submit = async () => {
       autoHideMs: 3000
     });
 
-    setTimeout(() => { router.push('/home'); }, 500);
+    setTimeout(() => { router.push('/dashboard'); }, 500);
   } catch (err) {
     console.error(err);
     msg.value = getregisterError(err);
@@ -363,6 +409,10 @@ const submit = async () => {
 
 .full-width {
   width: 100%;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Responsividad para pantallas pequeñas */

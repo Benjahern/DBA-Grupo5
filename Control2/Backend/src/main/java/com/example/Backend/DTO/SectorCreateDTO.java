@@ -2,9 +2,10 @@ package com.example.Backend.DTO;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class SectorCreateDTO {
     private String name;
-    private Double latitude;
-    private Double longitude;
+    private List<CoordinateDTO> coordinates;
 }

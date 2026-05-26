@@ -10,13 +10,13 @@
         <div class="input-row">
           <!-- Input de correo electrónico con ícono -->
           <div class="input-group">
-            <label for="login-identifier">Correo electrónico</label>
+            <label for="login-identifier">Username o correo electronico</label>
             <div class="input-container">
               <!-- La entrada se guarda en la variable 'identifier' -->
                 <input 
                 id="login-identifier" 
                 type="text" 
-                placeholder="Correo electrónico" 
+                placeholder="Username o correo electronico" 
                 v-model="identifier"
                 required
               />
@@ -69,15 +69,17 @@ const loading = ref(false);
 const msg = ref(null);
 
 const getLoginError = (err) => {
-  if (err.response?.status === 401){
+  const backendError = err.response?.data?.error || err.response?.data?.message || '';
+
+  if (err.response?.status === 401 || backendError === 'Password incorrecto'){
     show({
       message: 'Credenciales incorrectas. Por favor verifica tu usuario y contraseña.',
       severity: 'error',
       autoHideMs: 4000
     });
     return 'Credenciales incorrectas. Por favor verifica tu usuario y contraseña.';
-  } 
-  if (err.response?.status === 404) {
+  }
+  if (err.response?.status === 404 || backendError === 'Usuario no encontrado') {
     show({
       message: 'El usuario ingresado no se encuentra registrado. Crea tu cuenta ahora mismo presionando el botón "Crear cuenta".',
       severity: 'info',
@@ -85,7 +87,7 @@ const getLoginError = (err) => {
     });
     return 'El usuario ingresado no se encuentra registrado.\nCrea tu cuenta ahora mismo presionando el botón:\n"Crear cuenta".';
   }
-  
+
   show({
     message: 'Ocurrió un error al iniciar sesión. Inténtalo de nuevo más tarde.',
     severity: 'warning',
@@ -114,7 +116,7 @@ const submit = async () => {
       autoHideMs: 3000
     });
 
-    setTimeout(() => { router.push('/home'); }, 500);
+    setTimeout(() => { router.push('/dashboard'); }, 500);
     
   } catch (err) {
     console.error(err);

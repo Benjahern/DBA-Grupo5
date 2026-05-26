@@ -27,9 +27,10 @@
 
     <!-- Mapa -->
     <l-map
+      ref="mapRef"
       :zoom="zoom"
       :center="center"
-      style="height: 400px; width: 100%; border-radius: 8px;"
+      style="height: 280px; width: 100%; max-width: 500px; border-radius: 8px;"
       @click="handleMapClick"
     >
 
@@ -51,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 
 // Componentes Vue Leaflet
 import {
@@ -76,6 +77,8 @@ const zoom = ref(13);
 const latitude = ref(null);
 const longitude = ref(null);
 
+const mapRef = ref(null);
+
 // URL OpenStreetMap
 const tileUrl =
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -87,7 +90,7 @@ const attribution =
 /**
  * Maneja click manual sobre el mapa
  */
-const handleMapClick = (event) => {
+const handleMapClick = async (event) => {
 
   latitude.value = event.latlng.lat;
   longitude.value = event.latlng.lng;
@@ -96,6 +99,8 @@ const handleMapClick = (event) => {
     latitude.value,
     longitude.value
   ];
+
+  await syncMapView();
 
   emit('location-selected', {
     latitude: latitude.value,
@@ -120,7 +125,7 @@ const getCurrentLocation = () => {
   navigator.geolocation.getCurrentPosition(
 
     // Éxito
-    (position) => {
+    async (position) => {
 
       latitude.value = position.coords.latitude;
       longitude.value = position.coords.longitude;
@@ -131,8 +136,10 @@ const getCurrentLocation = () => {
         longitude.value
       ];
 
-      // Zoom más cercano
+      // Zoom mas cercano
       zoom.value = 16;
+
+      await syncMapView();
 
       emit('location-selected', {
         latitude: latitude.value,
@@ -155,24 +162,39 @@ const getCurrentLocation = () => {
   );
 
 };
+
+const syncMapView = async () => {
+  await nextTick();
+  const map = mapRef.value?.leafletObject;
+  if (!map) {
+    return;
+  }
+  map.setView(center.value, zoom.value, { animate: true });
+};
 </script>
 
 <style scoped>
 .location-picker {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
 }
 
 .location-button {
   background-color: #3b424d;
   color: white;
-  border: none;
-  padding: 0.8rem 1rem;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.65rem 1.5rem;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.85rem;
   transition: background-color 0.2s;
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
 }
 
 .location-button:hover {
@@ -181,12 +203,16 @@ const getCurrentLocation = () => {
 
 .coordinates-box {
   background-color: #f4f4f4;
-  padding: 1rem;
-  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
   color: #333;
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  font-size: 0.85rem;
 }
 
 .coordinates-box p {
-  margin: 0.2rem 0;
+  margin: 0.15rem 0;
 }
 </style>

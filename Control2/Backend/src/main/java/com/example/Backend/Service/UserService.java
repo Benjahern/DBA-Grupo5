@@ -14,7 +14,6 @@ public class UserService {
     UserRepository userRepository;
 
     public UserEntity create(UserEntity user) {
-        // Aquí deberías encriptar la contraseña antes de guardar usando BCrypt (Spring Security)
         return userRepository.save(user);
     }
 
@@ -27,6 +26,10 @@ public class UserService {
     }
 
     public UserEntity getUserByEmail(String email) {
-        return userRepository.findByEmail(email);
+        UserEntity user = userRepository.findByEmail(email);
+        if (user == null) {
+            throw new RuntimeException("Usuario no encontrado");
+        }
+        return user;
     }
 }

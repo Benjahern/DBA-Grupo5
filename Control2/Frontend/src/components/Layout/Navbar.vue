@@ -6,34 +6,25 @@
       <div class="notification-container">
         <button class="bell-btn" @click="toggleNotifications" title="Notificaciones">
           🔔
-          <span v-if="expiringTasks.length > 0" class="bell-badge">{{ expiringTasks.length }}</span>
+          <span v-if="unreadCount > 0" class="bell-badge">{{ unreadCount }}</span>
         </button>
 
         <div v-if="showNotifications" class="notifications-dropdown">
           <div class="dropdown-header">
-            <h3>Tareas por vencer</h3>
+            <h3>Notificaciones</h3>
           </div>
           <div class="dropdown-body">
-            <div v-if="expiringTasks.length === 0" class="no-notifications">
-              No hay tareas por vencer
+            <div v-if="unreadCount === 0" class="no-notifications">
+              No hay notificaciones
             </div>
-
-            <div
-              v-for="task in expiringTasks"
-              :key="task.id"
-              class="notification-item unread"
-            >
-              <span class="notification-icon">⏰</span>
-              <div class="notification-content">
-                <p><strong>{{ task.title }}</strong> vence hoy</p>
-                <span class="notification-time">{{ task.dueDate }}</span>
-              </div>
+            <div v-else class="notification-item unread">
+              <p>Tienes {{ unreadCount }} notificaciones sin leer</p>
             </div>
           </div>
         </div>
       </div>
 
-      <span>Usuario</span>
+      <span>{{ displayUsername }}</span>
 
       <button class="logout-btn" @click="handleLogout">
         Cerrar sesión
@@ -43,21 +34,28 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../services/http-common'
+import { getUser, logout, restoreSession, subscribe } from '../../services/auth.js'
+import { getUnreadCount } from '../../services/notifications.js'
+import { useAlert } from '../Alerts/useAlert.js'
 
 const router = useRouter()
+const user = ref(getUser())
+const { show } = useAlert()
 const showNotifications = ref(false)
-const expiringTasks = ref([])
+const unreadCount = ref(0)
 let pollingInterval = null
+let unsubscribe = null
 
-const fetchExpiringTasks = async () => {
+const displayUsername = computed(() => user.value?.username || 'Usuario')
+
+const fetchUnreadCount = async () => {
   try {
-    const response = await api.get('/api/tasks/expiring')
-    expiringTasks.value = response.data
+    unreadCount.value = await getUnreadCount()
   } catch (error) {
-    console.error('Error fetching expiring tasks:', error)
+    console.error('Error fetching unread count:', error)
   }
 }
 
@@ -65,9 +63,16 @@ const toggleNotifications = () => {
   showNotifications.value = !showNotifications.value
 }
 
-const handleLogout = () => {
-  console.log('Redireccionando al Login...')
-  router.push('/login')
+const handleLogout = async () => {
+  try {
+    await logout()
+    show({ message: 'Sesión cerrada correctamente.', severity: 'success', autoHideMs: 3000 })
+  } catch (error) {
+    console.error('Error logout:', error)
+    show({ message: 'No se pudo cerrar la sesión.', severity: 'error', autoHideMs: 4000 })
+  } finally {
+    router.push('/login')
+  }
 }
 
 const closeDropdown = (e) => {
@@ -78,13 +83,20 @@ const closeDropdown = (e) => {
 
 onMounted(() => {
   window.addEventListener('click', closeDropdown)
-  fetchExpiringTasks()
-  pollingInterval = setInterval(fetchExpiringTasks, 300000)
+  fetchUnreadCount()
+  pollingInterval = setInterval(fetchUnreadCount, 300000)
+  restoreSession().finally(() => {
+    user.value = getUser()
+  })
+  unsubscribe = subscribe((nextUser) => {
+    user.value = nextUser
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', closeDropdown)
   if (pollingInterval) clearInterval(pollingInterval)
+  if (unsubscribe) unsubscribe()
 })
 </script>
 

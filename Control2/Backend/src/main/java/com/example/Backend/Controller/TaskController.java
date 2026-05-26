@@ -3,7 +3,7 @@ package com.example.Backend.Controller;
 import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Service.TaskService;
-import com.example.Backend.Service.UserService;
+import com.example.Backend.Repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -11,18 +11,18 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/api/task")
 public class TaskController {
 
     private final TaskService taskService;
-    private final UserService userService; // Agregamos el servicio de usuarios
+    private final UserRepository userRepository;
 
-    // Actualizamos el constructor para inyectar ambos servicios
-    public TaskController(TaskService taskService, UserService userService) {
+    public TaskController(TaskService taskService, UserRepository userRepository) {
         this.taskService = taskService;
-        this.userService = userService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping
@@ -39,13 +39,9 @@ public class TaskController {
 
     @PostMapping
     public ResponseEntity<TaskEntity> createTask(@RequestBody TaskEntity task, Authentication authentication){
-        // 1. Extraemos el email/username del usuario que inició sesión desde el Token JWT
-        String userEmail = authentication.getName();
+        String username = authentication.getName();
+        UserEntity currentUser = userRepository.findByUserName(username);
 
-        // 2. Buscamos el registro correspondiente en la base de datos
-        UserEntity currentUser = userService.getUserByEmail(userEmail);
-
-        // 3. Forzamos que la tarea pertenezca al usuario autenticado de forma segura
         task.setUser(currentUser);
 
         TaskEntity newTask = taskService.create(task);
@@ -93,6 +89,21 @@ public class TaskController {
     @GetMapping("/expiring")
     public ResponseEntity<List<TaskEntity>> getExpiringTasks() {
         return ResponseEntity.ok(taskService.getTasksExpiringSoon());
+    }
+
+    @GetMapping("/my/sectors-count")
+    public ResponseEntity<Map<Long, Long>> getMyTasksCountBySector(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getTasksCountBySectorForUser(user.getId()));
+    }
+
+    @GetMapping("/my/nearest")
+    public ResponseEntity<TaskEntity> getMyNearestTask(
+            Authentication authentication,
+            @RequestParam Double lat,
+            @RequestParam Double lon) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getNearestPendingTask(lat, lon, user.getId()));
     }
 
 }

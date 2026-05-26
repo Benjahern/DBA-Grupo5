@@ -1,7 +1,12 @@
 package com.example.Backend.Service;
 
+import com.example.Backend.DTO.CoordinateDTO;
+import com.example.Backend.DTO.SectorCreateDTO;
 import com.example.Backend.Entity.SectorEntity;
 import com.example.Backend.Repository.SectorRepository;
+import jakarta.transaction.Transactional;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.locationtech.jts.geom.Point;
@@ -14,7 +19,16 @@ public class SectorService {
     @Autowired
     SectorRepository sectorRepository;
 
-    public SectorEntity create(SectorEntity sector) {
+    @Transactional
+    public SectorEntity createSectorFromDTO(SectorCreateDTO dto) {
+        List<CoordinateDTO> coordsDTO = dto.getCoordinates();
+
+        GeometryFactory geometryFactory = new GeometryFactory();
+
+        SectorEntity sector = new SectorEntity();
+        sector.setName(dto.getName());
+        sector.setGeoLocation(geometryFactory.createPoint(new Coordinate(coordsDTO.get(0).getLongitude(), coordsDTO.get(0).getLatitude())));
+
         return sectorRepository.save(sector);
     }
 
