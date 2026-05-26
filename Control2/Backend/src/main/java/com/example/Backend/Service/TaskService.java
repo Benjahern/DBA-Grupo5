@@ -2,6 +2,7 @@ package com.example.Backend.Service;
 
 import com.example.Backend.Entity.SectorEntity;
 import com.example.Backend.Entity.TaskData;
+import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Repository.SectorRepository;
 import com.example.Backend.Repository.TaskRepository;
@@ -12,7 +13,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import com.example.Backend.Entity.TaskEntity;
 
 import java.time.LocalDate;
 import java.util.Iterator;
@@ -29,6 +29,9 @@ public class TaskService {
 
     @Autowired
     SectorRepository sectorRepository;
+
+    @Autowired
+    NotificationService notificationService;
 
     public TaskService(TaskRepository taskRepository) {
         this.taskRepository = taskRepository;
@@ -47,7 +50,15 @@ public class TaskService {
         if (task.getStatus() == null || task.getStatus().isBlank()) {
             task.setStatus("vigente");
         }
-        return taskRepository.save(task);
+        TaskEntity savedTask = taskRepository.save(task);
+
+        // Crear notificación si la tarea vence mañana
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        if (savedTask.getDueDate().equals(tomorrow) && notificationService != null) {
+            notificationService.createExpiringNotification(savedTask);
+        }
+
+        return savedTask;
     }
 
     public TaskEntity update(TaskEntity updatedTask) {
@@ -109,6 +120,9 @@ public class TaskService {
             LocalDate limit = task.getDueDate();
             if (now.isAfter(limit)) {
                 task.setStatus("atrasado");
+            }
+            if (limit.equals(now.plusDays(1)) && !notificationService.notificationExistsForTask(task.getId(), "expiring")) {
+                notificationService.createExpiringNotification(task);
             }
             update(task);
         }

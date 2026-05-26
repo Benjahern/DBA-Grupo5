@@ -1,5 +1,6 @@
 package com.example.Backend.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.*;
@@ -28,14 +29,18 @@ public class UserEntity {
 
 
     @Column(name= "pass")
+    @JsonIgnore
     String password;
 
+    @JsonIgnore
     @Column(columnDefinition = "geometry(Point, 4326)")
     private Point geoLocation;
 
+    @JsonIgnore
     @ElementCollection
     List<Long> taskList = new java.util.ArrayList<>();
 
+    @JsonIgnore
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles")
     private Set<String> roles = new HashSet<>();

@@ -69,20 +69,15 @@ const router = createRouter({
 })
 
 // Guard de navegación: protege rutas que requieren autenticación
-router.beforeEach(async (to, from, next) => {
-  // Verificar si la ruta (o alguna ruta padre) requiere autenticación
+router.beforeEach(async (to, from) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   if (requiresAuth && !isAuthenticated()) {
-    // Intentar restaurar la sesión desde la cookie JWT
     await restoreSession()
   }
 
   if (requiresAuth && !isAuthenticated()) {
-    // Si sigue sin estar autenticado, redirigir al login
-    next('/login')
-  } else {
-    next()
+    return '/login'
   }
 })
 

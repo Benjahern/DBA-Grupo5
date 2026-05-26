@@ -1,10 +1,11 @@
 package com.example.Backend.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.Point;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,9 +22,11 @@ public class SectorEntity {
     Long id;
     String name;
 
-    @Column(columnDefinition = "geometry(Polygon, 4326)")
-    private Polygon geoLocation;
+    @JsonIgnore
+    @Column(columnDefinition = "geometry(Point, 4326)")
+    private Point geoLocation;
 
+    @JsonIgnore
     @ElementCollection
     @CollectionTable(name = "sector_tasks", joinColumns = @JoinColumn(name = "sector_id"))
     List<TaskData> taskList = new ArrayList<>();

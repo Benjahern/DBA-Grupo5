@@ -61,44 +61,18 @@
 
 <script setup>
 
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 
 import NotificationCard from '../components/Notifications/NotificationCard.vue'
 import NotificationFilters from '../components/Notifications/NotificationFilters.vue'
 import NotificationEmptyState from '../components/Notifications/NotificationsEmptyState.vue'
+import { getNotifications, markAsRead as markAsReadApi, markAllAsRead as markAllAsReadApi } from '../services/notifications.js'
 
 const search = ref('')
 const status = ref('all')
 const type = ref('all')
 
-const notifications = ref([
-  {
-    id: 1,
-    title: 'Tarea vencida',
-    message: 'La tarea "Backend API" venció ayer',
-    type: 'overdue',
-    read: false,
-    time: 'Hace 2h'
-  },
-
-  {
-    id: 2,
-    title: 'Recordatorio',
-    message: 'Debes terminar el diseño UI',
-    type: 'reminder',
-    read: false,
-    time: 'Hace 5h'
-  },
-
-  {
-    id: 3,
-    title: 'Tarea completada',
-    message: '"Configurar backend" fue completada',
-    type: 'completed',
-    read: true,
-    time: 'Ayer'
-  }
-])
+const notifications = ref([])
 
 const filteredNotifications = computed(() => {
 
@@ -127,14 +101,12 @@ const filteredNotifications = computed(() => {
 
 })
 
-function markAsRead(id) {
-
+async function markAsRead(id) {
+  await markAsReadApi(id)
   const notification = notifications.value.find(n => n.id === id)
-
   if (notification) {
     notification.read = true
   }
-
 }
 
 function deleteNotification(id) {
@@ -145,13 +117,16 @@ function deleteNotification(id) {
 
 }
 
-function markAllAsRead() {
-
+async function markAllAsRead() {
+  await markAllAsReadApi()
   notifications.value.forEach(notification => {
     notification.read = true
   })
-
 }
+
+onMounted(async () => {
+  notifications.value = await getNotifications()
+})
 
 </script>
 

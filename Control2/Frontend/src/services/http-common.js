@@ -15,6 +15,19 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Add Authorization header from cookie for every request
+api.interceptors.request.use((config) => {
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'auth_token') {
+      config.headers.Authorization = `Bearer ${value}`;
+      break;
+    }
+  }
+  return config;
+});
+
 export const apiBaseUrl = baseURL;
 
 export default api;
