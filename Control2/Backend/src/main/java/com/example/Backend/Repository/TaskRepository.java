@@ -24,6 +24,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
 
     public List<TaskEntity> findByDueDateBetween(LocalDate start, LocalDate end);
 
+    List<TaskEntity> findByUserId(Long userId);
+
+    List<TaskEntity> findByUserIdAndStatus(Long userId, String status);
+
 }
 
 

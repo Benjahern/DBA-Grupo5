@@ -11,6 +11,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/api/task")
@@ -88,6 +89,21 @@ public class TaskController {
     @GetMapping("/expiring")
     public ResponseEntity<List<TaskEntity>> getExpiringTasks() {
         return ResponseEntity.ok(taskService.getTasksExpiringSoon());
+    }
+
+    @GetMapping("/my/sectors-count")
+    public ResponseEntity<Map<Long, Long>> getMyTasksCountBySector(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getTasksCountBySectorForUser(user.getId()));
+    }
+
+    @GetMapping("/my/nearest")
+    public ResponseEntity<TaskEntity> getMyNearestTask(
+            Authentication authentication,
+            @RequestParam Double lat,
+            @RequestParam Double lon) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getNearestPendingTask(lat, lon, user.getId()));
     }
 
 }

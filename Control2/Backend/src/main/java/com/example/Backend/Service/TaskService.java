@@ -15,8 +15,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TaskService {
@@ -183,6 +185,54 @@ public class TaskService {
                 .filter(t -> !t.getStatus().equals("completado")
                         && !t.getStatus().equals("completadoAtrasado"))
                 .toList();
+    }
+
+    public Map<Long, Long> getTasksCountBySectorForUser(Long userId) {
+        List<TaskEntity> tasks = taskRepository.findByUserId(userId);
+        Map<Long, Long> sectorCount = new java.util.HashMap<>();
+        for (TaskEntity task : tasks) {
+            if (task.getSector() != null) {
+                Long sectorId = task.getSector().getId();
+                sectorCount.merge(sectorId, 1L, Long::sum);
+            }
+        }
+        return sectorCount;
+    }
+
+    public TaskEntity getNearestPendingTask(Double userLat, Double userLon, Long userId) {
+        List<TaskEntity> pendingTasks = taskRepository.findByUserIdAndStatus(userId, "vigente");
+
+        TaskEntity nearestTask = null;
+        double minDistance = Double.MAX_VALUE;
+
+        for (TaskEntity task : pendingTasks) {
+            if (task.getSector() != null && task.getSector().getGeoLocation() != null) {
+                double taskLat = task.getSector().getGeoLocation().getY();
+                double taskLon = task.getSector().getGeoLocation().getX();
+
+                double distance = calculateDistance(userLat, userLon, taskLat, taskLon);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestTask = task;
+                }
+            }
+        }
+        return nearestTask;
+    }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371000;
+        double lat1Rad = Math.toRadians(lat1);
+        double lat2Rad = Math.toRadians(lat2);
+        double deltaLat = Math.toRadians(lat2 - lat1);
+        double deltaLon = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                   Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                   Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
     }
 
 }
