@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import com.example.Backend.Repository.Projection.SectorCountProjection;
 
 import java.util.List;
 import java.util.Map;
@@ -104,6 +105,36 @@ public class TaskController {
             @RequestParam Double lon) {
         UserEntity user = userRepository.findByUserName(authentication.getName());
         return ResponseEntity.ok(taskService.getNearestPendingTask(lat, lon, user.getId()));
+    }
+
+    @GetMapping("/my/top-sector-2km")
+    public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
+        // Obtenemos el usuario autenticado
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        
+        SectorCountProjection topSector = taskService.getTopSectorCompletedWithin2Km(user.getId());
+        
+        // Si no hay tareas completadas en ese radio, la consulta nativa devuelve nulo.
+        if (topSector == null) {
+            return ResponseEntity.noContent().build(); // Retorna 204 No Content
+        }
+        
+        return ResponseEntity.ok(topSector);
+    }
+
+    @GetMapping("/my/top-sector-5km")
+    public ResponseEntity<SectorCountProjection> getTopSectorWithin5Km(Authentication authentication) {
+        // Obtenemos el usuario autenticado
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        
+        SectorCountProjection topSector = taskService.getTopSectorCompletedWithin5Km(user.getId());
+        
+        // Si no hay tareas completadas en ese radio
+        if (topSector == null) {
+            return ResponseEntity.noContent().build(); // Retorna 204 No Content
+        }
+        
+        return ResponseEntity.ok(topSector);
     }
 
 }

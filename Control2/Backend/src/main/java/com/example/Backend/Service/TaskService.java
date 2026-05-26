@@ -235,4 +235,12 @@ public class TaskService {
         return R * c;
     }
 
+    public SectorCountProjection getTopSectorCompletedWithin2Km(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin2Km(userId);
+    }
+
+    public SectorCountProjection getTopSectorCompletedWithin5Km(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin5Km(userId);
+    }
+
 }
