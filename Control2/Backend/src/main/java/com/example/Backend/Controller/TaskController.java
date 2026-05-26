@@ -109,14 +109,12 @@ public class TaskController {
 
     @GetMapping("/my/top-sector-2km")
     public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
-        // Obtenemos el usuario autenticado
         UserEntity user = userRepository.findByUserName(authentication.getName());
         
         SectorCountProjection topSector = taskService.getTopSectorCompletedWithin2Km(user.getId());
         
-        // Si no hay tareas completadas en ese radio, la consulta nativa devuelve nulo.
         if (topSector == null) {
-            return ResponseEntity.noContent().build(); // Retorna 204 No Content
+            return ResponseEntity.noContent().build();
         }
         
         return ResponseEntity.ok(topSector);
@@ -124,14 +122,12 @@ public class TaskController {
 
     @GetMapping("/my/top-sector-5km")
     public ResponseEntity<SectorCountProjection> getTopSectorWithin5Km(Authentication authentication) {
-        // Obtenemos el usuario autenticado
         UserEntity user = userRepository.findByUserName(authentication.getName());
         
         SectorCountProjection topSector = taskService.getTopSectorCompletedWithin5Km(user.getId());
         
-        // Si no hay tareas completadas en ese radio
         if (topSector == null) {
-            return ResponseEntity.noContent().build(); // Retorna 204 No Content
+            return ResponseEntity.noContent().build();
         }
         
         return ResponseEntity.ok(topSector);
