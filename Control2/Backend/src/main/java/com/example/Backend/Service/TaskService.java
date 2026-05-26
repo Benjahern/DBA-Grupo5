@@ -77,13 +77,24 @@ public class TaskService {
         }
     }
 
-    public boolean delete(Long id) throws Exception {
-        try {
-            taskRepository.deleteById(id);
-            return true;
-        } catch (Exception e) {
-            throw new Exception(e.getMessage());
+    @Transactional
+    public boolean delete(Long id) {
+        TaskEntity task = taskRepository.findById(id).orElseThrow();
+
+        if (task.getSector() != null) {
+            SectorEntity sector = getSector(task.getSector().getId());
+            List<TaskData> sectorTaskDataList = sector.getTaskList();
+            deleteTaskData(sectorTaskDataList, id);
+            sector.setTaskList(sectorTaskDataList);
+            sectorRepository.save(sector);
         }
+
+        if (notificationService != null) {
+            notificationService.deleteByTaskId(id);
+        }
+
+        taskRepository.delete(task);
+        return true;
     }
 
     public List<TaskEntity> getAllTask() {

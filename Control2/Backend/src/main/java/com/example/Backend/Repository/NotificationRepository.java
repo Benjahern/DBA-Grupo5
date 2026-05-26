@@ -15,4 +15,6 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
     long countByUserIdAndRead(Long userId, boolean read);
 
     boolean existsByTaskIdAndType(Long taskId, String type);
+
+    void deleteByTaskId(Long taskId);
 }

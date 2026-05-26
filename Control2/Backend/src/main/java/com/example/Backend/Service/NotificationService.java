@@ -67,4 +67,8 @@ public class NotificationService {
     public boolean notificationExistsForTask(Long taskId, String type) {
         return notificationRepository.existsByTaskIdAndType(taskId, type);
     }
+
+    public void deleteByTaskId(Long taskId) {
+        notificationRepository.deleteByTaskId(taskId);
+    }
 }

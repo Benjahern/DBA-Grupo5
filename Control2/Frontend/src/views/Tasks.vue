@@ -21,6 +21,20 @@
       @created="handleTaskCreated"
     />
 
+    <ModalEditTask
+      v-if="showEditModal && selectedTask"
+      :task="selectedTask"
+      @close="closeEditModal"
+      @updated="handleTaskUpdated"
+    />
+
+    <ModalDeleteTask
+      v-if="showDeleteModal && selectedTask"
+      :task="selectedTask"
+      @close="closeDeleteModal"
+      @deleted="handleTaskDeleted"
+    />
+
     <!-- TOOLBAR -->
     <div class="tasks-toolbar">
 
@@ -143,11 +157,11 @@
 
           <div class="details-actions">
 
-            <button class="secondary-btn">
+            <button class="secondary-btn" @click="openEditModal">
               Editar
             </button>
 
-            <button class="danger-btn">
+            <button class="danger-btn" @click="openDeleteModal">
               Eliminar
             </button>
 
@@ -173,12 +187,16 @@
 import { computed, onMounted, ref } from 'vue';
 import api from '../services/http-common.js';
 import ModalNewTask from './ModalNewTask.vue';
+import ModalEditTask from './ModalEditTask.vue';
+import ModalDeleteTask from './ModalDeleteTask.vue';
 
 const tasks = ref([]);
 const selectedTaskId = ref(null);
 const loading = ref(false);
 const error = ref(null);
 const showModal = ref(false);
+const showEditModal = ref(false);
+const showDeleteModal = ref(false);
 
 const selectedTask = computed(() =>
   tasks.value.find((task) => task.id === selectedTaskId.value)
@@ -213,8 +231,41 @@ const closeModal = () => {
   showModal.value = false;
 };
 
+const openEditModal = () => {
+  if (!selectedTask.value) {
+    return;
+  }
+  showEditModal.value = true;
+};
+
+const closeEditModal = () => {
+  showEditModal.value = false;
+};
+
+const openDeleteModal = () => {
+  if (!selectedTask.value) {
+    return;
+  }
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false;
+};
+
 const handleTaskCreated = () => {
   fetchTasks();
+};
+
+const handleTaskUpdated = () => {
+  fetchTasks();
+  showEditModal.value = false;
+};
+
+const handleTaskDeleted = () => {
+  selectedTaskId.value = null;
+  fetchTasks();
+  showDeleteModal.value = false;
 };
 
 const formatDate = (value) => {
