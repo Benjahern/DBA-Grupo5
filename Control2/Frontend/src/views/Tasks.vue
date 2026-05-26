@@ -135,8 +135,21 @@
 
             <h3>Ubicación</h3>
 
-            <div class="map-placeholder">
-              🗺 Aquí podría mostrarse el mapa de la tarea
+            <div v-if="selectedTask?.sector?.coordinates" class="map-container">
+              <l-map
+                :zoom="mapZoom"
+                :center="mapCenter"
+                style="height: 220px; width: 100%; border-radius: 12px;"
+              >
+                <l-tile-layer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="&copy; OpenStreetMap contributors"
+                />
+                <l-marker v-if="markerPosition" :lat-lng="markerPosition" />
+              </l-map>
+            </div>
+            <div v-else class="map-placeholder">
+              🗺 El sector no tiene ubicación definida
             </div>
 
           </div>
@@ -173,6 +186,8 @@
 import { computed, onMounted, ref } from 'vue';
 import api from '../services/http-common.js';
 import ModalNewTask from './ModalNewTask.vue';
+import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const tasks = ref([]);
 const selectedTaskId = ref(null);
@@ -183,6 +198,18 @@ const showModal = ref(false);
 const selectedTask = computed(() =>
   tasks.value.find((task) => task.id === selectedTaskId.value)
 );
+
+const markerPosition = computed(() => {
+  if (!selectedTask.value?.sector?.coordinates) return null;
+  const coords = selectedTask.value.sector.coordinates;
+  if (coords && coords.length >= 2) {
+    return [coords[1], coords[0]]; // [latitude, longitude]
+  }
+  return null;
+});
+
+const mapCenter = computed(() => markerPosition.value || [-33.4489, -70.6693]);
+const mapZoom = computed(() => markerPosition.value ? 14 : 11);
 
 const fetchTasks = async () => {
   loading.value = true;
@@ -543,6 +570,12 @@ onMounted(fetchTasks);
 
   color: #64748b;
   background-color: #f8fafc;
+}
+
+.map-container {
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 /* ACTIONS */
