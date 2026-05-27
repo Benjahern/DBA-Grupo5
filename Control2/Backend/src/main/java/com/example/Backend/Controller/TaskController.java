@@ -111,25 +111,43 @@ public class TaskController {
     public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
         UserEntity user = userRepository.findByUserName(authentication.getName());
         
-        SectorCountProjection topSector = taskService.getTopSectorCompletedWithin2Km(user.getId());
+        // Verificamos si el usuario es ADMIN 
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+        
+        SectorCountProjection topSector;
+        
+        if (isAdmin) {
+            topSector = taskService.getTopSectorCompletedWithin2KmAllUsers(user.getId());
+        } else {
+            topSector = taskService.getTopSectorCompletedWithin2KmSpecificUser(user.getId());
+        }
         
         if (topSector == null) {
             return ResponseEntity.noContent().build();
         }
-        
         return ResponseEntity.ok(topSector);
     }
+
 
     @GetMapping("/my/top-sector-5km")
     public ResponseEntity<SectorCountProjection> getTopSectorWithin5Km(Authentication authentication) {
         UserEntity user = userRepository.findByUserName(authentication.getName());
         
-        SectorCountProjection topSector = taskService.getTopSectorCompletedWithin5Km(user.getId());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+        
+        SectorCountProjection topSector;
+        
+        if (isAdmin) {
+            topSector = taskService.getTopSectorCompletedWithin5KmAllUsers(user.getId());
+        } else {
+            topSector = taskService.getTopSectorCompletedWithin5KmSpecificUser(user.getId());
+        }
         
         if (topSector == null) {
             return ResponseEntity.noContent().build();
         }
-        
         return ResponseEntity.ok(topSector);
     }
 

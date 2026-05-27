@@ -68,14 +68,28 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
-            "JOIN users u ON t.user_id = u.id " + 
-            "WHERE u.id = :userId " +             
+            "JOIN users u ON t.user_id = u.id " +
+            "WHERE u.id = :userId " +
             "AND t.status IN ('completado', 'completadoAtrasado') " +
             "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 2000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
-    SectorCountProjection findTopSectorCompletedWithin2Km(@Param("userId") Long userId);
+    SectorCountProjection findTopSectorCompletedWithin2KmSpecificUser(@Param("userId") Long userId);
+
+    /**
+     * 3B. PARA ADMIN: Contabiliza TODAS las tareas completadas del sistema a 2km de la posición del admin
+     */
+    @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
+            "FROM tasks t " +
+            "JOIN sectors s ON t.sector_id = s.id " +
+            "JOIN users u ON u.id = :userId " +
+            "WHERE t.status IN ('completado', 'completadoAtrasado') " +
+            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 2000) " +
+            "GROUP BY s.id, s.name " +
+            "ORDER BY taskCount DESC " +
+            "LIMIT 1", nativeQuery = true)
+    SectorCountProjection findTopSectorCompletedWithin2KmAllUsers(@Param("userId") Long userId);
     /**
      * 4. ¿Cuál es el promedio de distancia de las tareas completadas respecto a la ubicación del usuario?
      */
@@ -115,14 +129,28 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
-            "JOIN users u ON t.user_id = u.id " + // <- Cambio aquí
-            "WHERE u.id = :userId " +             // <- Filtramos por tu usuario
+            "JOIN users u ON t.user_id = u.id " +
+            "WHERE u.id = :userId " +
             "AND t.status IN ('completado', 'completadoAtrasado') " +
             "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 5000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
-    SectorCountProjection findTopSectorCompletedWithin5Km(@Param("userId") Long userId);
+    SectorCountProjection findTopSectorCompletedWithin5KmSpecificUser(@Param("userId") Long userId);
+
+    /**
+     * 7B. PARA ADMIN: Contabiliza TODAS las tareas completadas del sistema a 5km de la posición del admin
+     */
+    @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
+            "FROM tasks t " +
+            "JOIN sectors s ON t.sector_id = s.id " +
+            "JOIN users u ON u.id = :userId " +
+            "WHERE t.status IN ('completado', 'completadoAtrasado') " +
+            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 5000) " +
+            "GROUP BY s.id, s.name " +
+            "ORDER BY taskCount DESC " +
+            "LIMIT 1", nativeQuery = true)
+    SectorCountProjection findTopSectorCompletedWithin5KmAllUsers(@Param("userId") Long userId);
     /**
      * 8. ¿Cuál es el promedio de distancia entre las tareas completadas y el punto registrado del usuario?
      */

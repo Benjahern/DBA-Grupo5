@@ -236,12 +236,20 @@ public class TaskService {
         return R * c;
     }
 
-    public SectorCountProjection getTopSectorCompletedWithin2Km(Long userId) {
-        return taskRepository.findTopSectorCompletedWithin2Km(userId);
+    // Métodos para 2km
+    public SectorCountProjection getTopSectorCompletedWithin2KmSpecificUser(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin2KmSpecificUser(userId);
+    }
+    public SectorCountProjection getTopSectorCompletedWithin2KmAllUsers(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin2KmAllUsers(userId);
     }
 
-    public SectorCountProjection getTopSectorCompletedWithin5Km(Long userId) {
-        return taskRepository.findTopSectorCompletedWithin5Km(userId);
+    // Métodos para 5km
+    public SectorCountProjection getTopSectorCompletedWithin5KmSpecificUser(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin5KmSpecificUser(userId);
+    }
+    public SectorCountProjection getTopSectorCompletedWithin5KmAllUsers(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin5KmAllUsers(userId);
     }
 
 }
