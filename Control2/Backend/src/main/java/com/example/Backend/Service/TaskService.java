@@ -57,10 +57,13 @@ public class TaskService {
         }
         TaskEntity savedTask = taskRepository.save(task);
 
-        // Crear notificación si la tarea vence mañana
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
-        if (savedTask.getDueDate().equals(tomorrow) && notificationService != null) {
-            notificationService.createExpiringNotification(savedTask);
+        // Crear notificación si la tarea vence hoy o mañana
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+        if (savedTask.getDueDate().equals(today) || savedTask.getDueDate().equals(tomorrow)) {
+            if (notificationService != null) {
+                notificationService.createExpiringNotification(savedTask);
+            }
         }
 
         return savedTask;
@@ -141,7 +144,7 @@ public class TaskService {
             if (now.isAfter(limit)) {
                 task.setStatus("atrasado");
             }
-            if (limit.equals(now.plusDays(1)) && !notificationService.notificationExistsForTask(task.getId(), "expiring")) {
+            if ((limit.equals(now) || limit.equals(now.plusDays(1))) && !notificationService.notificationExistsForTask(task.getId(), "expiring")) {
                 notificationService.createExpiringNotification(task);
             }
             update(task);

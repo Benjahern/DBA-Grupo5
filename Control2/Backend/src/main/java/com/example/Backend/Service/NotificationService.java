@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -60,6 +61,11 @@ public class NotificationService {
 
     public NotificationEntity createExpiringNotification(TaskEntity task) {
         String title = "Tarea por vencer";
+        LocalDate today = LocalDate.now();
+        if (task.getDueDate().equals(today)) {
+            String message = "La tarea \"" + task.getTitle() + "\" vence hoy";
+            return createNotification(title, message, "expiring", task.getUser(), task);
+        }
         String message = "La tarea \"" + task.getTitle() + "\" vence mañana";
         return createNotification(title, message, "expiring", task.getUser(), task);
     }
