@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import com.example.Backend.Repository.Projection.SectorCountProjection;
 
 import java.util.List;
 import java.util.Map;
@@ -104,6 +105,50 @@ public class TaskController {
             @RequestParam Double lon) {
         UserEntity user = userRepository.findByUserName(authentication.getName());
         return ResponseEntity.ok(taskService.getNearestPendingTask(lat, lon, user.getId()));
+    }
+
+    @GetMapping("/my/top-sector-2km")
+    public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        
+        // Verificamos si el usuario es ADMIN 
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+        
+        SectorCountProjection topSector;
+        
+        if (isAdmin) {
+            topSector = taskService.getTopSectorCompletedWithin2KmAllUsers(user.getId());
+        } else {
+            topSector = taskService.getTopSectorCompletedWithin2KmSpecificUser(user.getId());
+        }
+        
+        if (topSector == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(topSector);
+    }
+
+
+    @GetMapping("/my/top-sector-5km")
+    public ResponseEntity<SectorCountProjection> getTopSectorWithin5Km(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+        
+        SectorCountProjection topSector;
+        
+        if (isAdmin) {
+            topSector = taskService.getTopSectorCompletedWithin5KmAllUsers(user.getId());
+        } else {
+            topSector = taskService.getTopSectorCompletedWithin5KmSpecificUser(user.getId());
+        }
+        
+        if (topSector == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(topSector);
     }
 
 }

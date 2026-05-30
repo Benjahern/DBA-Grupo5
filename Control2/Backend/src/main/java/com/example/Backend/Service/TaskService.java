@@ -13,6 +13,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.example.Backend.Repository.Projection.SectorCountProjection;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -233,6 +234,22 @@ public class TaskService {
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return R * c;
+    }
+
+    // Métodos para 2km
+    public SectorCountProjection getTopSectorCompletedWithin2KmSpecificUser(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin2KmSpecificUser(userId);
+    }
+    public SectorCountProjection getTopSectorCompletedWithin2KmAllUsers(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin2KmAllUsers(userId);
+    }
+
+    // Métodos para 5km
+    public SectorCountProjection getTopSectorCompletedWithin5KmSpecificUser(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin5KmSpecificUser(userId);
+    }
+    public SectorCountProjection getTopSectorCompletedWithin5KmAllUsers(Long userId) {
+        return taskRepository.findTopSectorCompletedWithin5KmAllUsers(userId);
     }
 
 }
