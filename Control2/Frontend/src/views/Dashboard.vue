@@ -85,6 +85,54 @@
         </div>
       </div>
 
+      <div class="section">
+        <h2 class="section-title">📍 Sectores con más tareas pendientes</h2>
+        <div class="stats-container">
+          <div class="stat-card" v-for="item in pendingSectors" :key="item.sectorId">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-info">
+              <span class="stat-label">{{ item.sectorName }}</span>
+              <span class="stat-value"><strong>{{ item.taskCount }}</strong> tareas pendientes</span>
+            </div>
+          </div>
+          <div v-if="pendingSectors.length === 0" class="empty-state">
+            No hay tareas pendientes
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">📏 Promedio de distancia de tareas completadas</h2>
+        <div class="stats-container">
+          <div class="stat-card">
+            <div class="stat-icon">📍</div>
+            <div class="stat-info">
+              <span class="stat-label">Distancia promedio</span>
+              <span class="stat-value" v-if="avgDistanceCompleted !== null">
+                <strong>{{ formatDistance(avgDistanceCompleted) }}</strong>
+              </span>
+              <span class="stat-value" v-else>Sin datos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">📏 Promedio de distancia global</h2>
+        <div class="stats-container">
+          <div class="stat-card">
+            <div class="stat-icon">🌍</div>
+            <div class="stat-info">
+              <span class="stat-label">Distancia promedio global</span>
+              <span class="stat-value" v-if="avgDistanceGlobal !== null">
+                <strong>{{ formatDistance(avgDistanceGlobal) }}</strong>
+              </span>
+              <span class="stat-value" v-else>Sin datos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -92,12 +140,15 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { 
-  getTasksCountBySector, 
-  getSectors, 
-  getNearestTask, 
-  getTopSector2Km, 
-  getTopSector5Km 
+import {
+  getTasksCountBySector,
+  getSectors,
+  getNearestTask,
+  getTopSector2Km,
+  getTopSector5Km,
+  getAverageDistanceOfCompletedTasks,
+  getSectorsWithMostPendingTasks,
+  getAverageDistanceGlobal
 } from '../services/dashboard.js'
 
 const sectorCounts = ref({})
@@ -105,6 +156,9 @@ const sectors = ref([])
 const nearestTask = ref(null)
 const topSector2Km = ref(null)
 const topSector5Km = ref(null)
+const pendingSectors = ref([])
+const avgDistanceCompleted = ref(null)
+const avgDistanceGlobal = ref(null)
 
 const loading = ref(true)
 const error = ref(null)
@@ -124,17 +178,30 @@ const fetchData = async () => {
   loading.value = true
   error.value = null
   try {
-    // Agregamos las nuevas llamadas al Promise.all para cargar todo en paralelo
-    const [countsData, sectorsData, top2kmData, top5kmData] = await Promise.all([
+    const [
+      countsData,
+      sectorsData,
+      top2kmData,
+      top5kmData,
+      avgDistData,
+      pendingSectorsData,
+      avgDistGlobalData
+    ] = await Promise.all([
       getTasksCountBySector(),
       getSectors(),
-      getTopSector2Km().catch(() => null), // El catch evita que todo falle si uno da error
-      getTopSector5Km().catch(() => null)
+      getTopSector2Km().catch(() => null),
+      getTopSector5Km().catch(() => null),
+      getAverageDistanceOfCompletedTasks().catch(() => null),
+      getSectorsWithMostPendingTasks().catch(() => null),
+      getAverageDistanceGlobal().catch(() => null)
     ])
     sectorCounts.value = countsData
     sectors.value = sectorsData
     topSector2Km.value = top2kmData
     topSector5Km.value = top5kmData
+    avgDistanceCompleted.value = avgDistData
+    pendingSectors.value = pendingSectorsData
+    avgDistanceGlobal.value = avgDistGlobalData
   } catch (err) {
     console.error('Error fetching dashboard data:', err)
     error.value = 'No se pudieron cargar los datos.'

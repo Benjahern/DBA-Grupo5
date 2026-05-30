@@ -106,10 +106,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
-            "WHERE t.status IN ('vigente', 'atrasado') " +
+            "WHERE t.user_id = :userId AND t.status IN ('vigente', 'atrasado') " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC", nativeQuery = true)
-    List<SectorCountProjection> findSectorsWithMostPendingTasks();
+    List<SectorCountProjection> findSectorsWithMostPendingTasks(@Param("userId") Long userId);
 
     /**
      * 6. ¿Cuántas tareas ha realizado cada usuario por sector?

@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
+import com.example.Backend.Repository.Projection.UserSectorCountProjection;
 
 import java.util.List;
 import java.util.Map;
@@ -27,14 +28,30 @@ public class TaskController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TaskEntity>> getAllTask(){
-        List<TaskEntity> taskList = taskService.getAllTask();
+    public ResponseEntity<List<TaskEntity>> getAllTask(Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        List<TaskEntity> taskList;
+        if (isAdmin) {
+            taskList = taskService.getAllTask();
+        } else {
+            taskList = taskService.getByUserId(user.getId());
+        }
         return ResponseEntity.ok(taskList);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskEntity> getTask(@PathVariable Long id){
+    public ResponseEntity<TaskEntity> getTask(@PathVariable Long id, Authentication authentication){
         TaskEntity task = taskService.getTask(id);
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        if (!isAdmin && (task.getUser() == null || !task.getUser().getId().equals(user.getId()))) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(task);
     }
 
@@ -51,39 +68,100 @@ public class TaskController {
 
 
     @PutMapping("/update")
-    public ResponseEntity<TaskEntity> updateTask(@RequestBody TaskEntity task){
+    public ResponseEntity<TaskEntity> updateTask(@RequestBody TaskEntity task, Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        TaskEntity existingTask = taskService.getTask(task.getId());
+        if (!isAdmin && (existingTask.getUser() == null || !existingTask.getUser().getId().equals(user.getId()))) {
+            return ResponseEntity.status(403).build();
+        }
         TaskEntity updatedTask = taskService.update(task);
         return ResponseEntity.ok(updatedTask);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Boolean> deleteTask(@PathVariable Long id) throws Exception {
+    public ResponseEntity<Boolean> deleteTask(@PathVariable Long id, Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        TaskEntity task = taskService.getTask(id);
+        if (!isAdmin && (task.getUser() == null || !task.getUser().getId().equals(user.getId()))) {
+            return ResponseEntity.status(403).build();
+        }
         Boolean deleted = taskService.delete(id);
         return ResponseEntity.ok(deleted);
     }
 
     @RequestMapping("/sector/{sectorId}")
-    public ResponseEntity<List<TaskEntity>> getBySector(@PathVariable Long sectorId){
-        List<TaskEntity> taskList = taskService.getBySector(sectorId);
+    public ResponseEntity<List<TaskEntity>> getBySector(@PathVariable Long sectorId, Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        List<TaskEntity> taskList;
+        if (isAdmin) {
+            taskList = taskService.getBySector(sectorId);
+        } else {
+            taskList = taskService.getBySector(sectorId).stream()
+                    .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
+                    .toList();
+        }
         return ResponseEntity.ok(taskList);
     }
 
     @RequestMapping("/status")
-    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) String status){
-        List<TaskEntity> taskList = taskService.getByStatus(status);
+    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) String status, Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        List<TaskEntity> taskList;
+        if (isAdmin) {
+            taskList = taskService.getByStatus(status);
+        } else {
+            taskList = taskService.getByStatus(status).stream()
+                    .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
+                    .toList();
+        }
         return ResponseEntity.ok(taskList);
     }
 
     @RequestMapping("/keyword")
-    public ResponseEntity<List<TaskEntity>> getByKeyword(@RequestParam(required = false) String keyword){
-        List<TaskEntity> taskList = taskService.getByKeyword(keyword);
+    public ResponseEntity<List<TaskEntity>> getByKeyword(@RequestParam(required = false) String keyword, Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        List<TaskEntity> taskList;
+        if (isAdmin) {
+            taskList = taskService.getByKeyword(keyword);
+        } else {
+            taskList = taskService.getByKeyword(keyword).stream()
+                    .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
+                    .toList();
+        }
         return ResponseEntity.ok(taskList);
     }
 
     @RequestMapping("/statusAndKeyword")
     public ResponseEntity<List<TaskEntity>> getByStatusAndKeyword(@RequestParam(required = false) String status,
-                                                                  @RequestParam(required = false) String keyword){
-        List<TaskEntity> taskList = taskService.getByStatusAndKeyword(status, keyword);
+                                                                  @RequestParam(required = false) String keyword,
+                                                                  Authentication authentication){
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        List<TaskEntity> taskList;
+        if (isAdmin) {
+            taskList = taskService.getByStatusAndKeyword(status, keyword);
+        } else {
+            taskList = taskService.getByStatusAndKeyword(status, keyword).stream()
+                    .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
+                    .toList();
+        }
         return ResponseEntity.ok(taskList);
     }
 
@@ -149,6 +227,34 @@ public class TaskController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(topSector);
+    }
+
+    //  Promedio de distancia de tareas completadas del usuario
+    @GetMapping("/my/average-distance")
+    public ResponseEntity<Double> getAverageDistanceOfCompletedTasks(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getAverageDistanceOfCompletedTasks(user.getId()));
+    }
+
+    // Consulta 5: Sectores con más tareas pendientes (filtrado por usuario)
+    @GetMapping("/my/pending/by-sector")
+    public ResponseEntity<List<SectorCountProjection>> getMyPendingTasksBySector(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getSectorsWithMostPendingTasks(user.getId()));
+    }
+
+    //  Tareas por cada usuario por sector (Admin)
+    @GetMapping("/all-users/completed-by-sector")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserSectorCountProjection>> getAllUsersCompletedBySector() {
+        return ResponseEntity.ok(taskService.getCompletedTasksForEachUserPerSector());
+    }
+
+    //  Promedio de distancia global (todas las completadas)
+    @GetMapping("/my/average-distance-global")
+    public ResponseEntity<Double> getAverageDistanceOfAllCompletedTasks(Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        return ResponseEntity.ok(taskService.getAverageDistanceOfAllCompletedTasks(user.getId()));
     }
 
 }

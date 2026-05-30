@@ -13,7 +13,9 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.example.Backend.Repository.Projection.DistanceProjection;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
+import com.example.Backend.Repository.Projection.UserSectorCountProjection;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -106,6 +108,10 @@ public class TaskService {
 
     public TaskEntity getTask(Long id) {
         return taskRepository.findById(id).orElseThrow();
+    }
+
+    public List<TaskEntity> getByUserId(Long userId) {
+        return taskRepository.findByUserId(userId);
     }
 
     public List<TaskEntity> getBySector(Long id) {
@@ -250,6 +256,28 @@ public class TaskService {
     }
     public SectorCountProjection getTopSectorCompletedWithin5KmAllUsers(Long userId) {
         return taskRepository.findTopSectorCompletedWithin5KmAllUsers(userId);
+    }
+
+    // Promedio de distancia de tareas completadas respecto al usuario
+    public Double getAverageDistanceOfCompletedTasks(Long userId) {
+        var result = taskRepository.getAverageDistanceOfUserCompletedTasks(userId);
+        return result != null ? result.getAverageDistance() : null;
+    }
+
+    // Consulta 5: Sectores con más tareas pendientes (filtrado por usuario)
+    public List<SectorCountProjection> getSectorsWithMostPendingTasks(Long userId) {
+        return taskRepository.findSectorsWithMostPendingTasks(userId);
+    }
+
+    // Consulta 6: Tareas por cada usuario por sector (completadas)
+    public List<UserSectorCountProjection> getCompletedTasksForEachUserPerSector() {
+        return taskRepository.countCompletedTasksForEachUserPerSector();
+    }
+
+    // Promedio de distancia entre todas las tareas completadas y el usuario
+    public Double getAverageDistanceOfAllCompletedTasks(Long userId) {
+        var result = taskRepository.getAverageDistanceOfAllCompletedTasksToUser(userId);
+        return result != null ? result.getAverageDistance() : null;
     }
 
 }

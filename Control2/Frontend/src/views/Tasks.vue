@@ -76,8 +76,6 @@
           @click="selectTask(task.id)"
         >
           <div class="task-item-left">
-            <input type="checkbox" :checked="task.status === 'completado' || task.status === 'completadoAtrasado'" />
-
             <div class="task-item-info">
               <span class="task-title">
                 {{ task.title }}
@@ -169,6 +167,14 @@
           </div>
 
           <div class="details-actions">
+
+            <button
+              v-if="selectedTask.status !== 'completado' && selectedTask.status !== 'completadoAtrasado'"
+              class="complete-btn"
+              @click="completeTask"
+            >
+              Completar
+            </button>
 
             <button class="secondary-btn" @click="openEditModal">
               Editar
@@ -295,6 +301,41 @@ const handleTaskDeleted = () => {
   showDeleteModal.value = false;
 };
 
+const completeTask = async () => {
+  if (!selectedTask.value) return;
+
+  const currentTask = selectedTask.value;
+  const newStatus = currentTask.status === 'atrasado' ? 'completadoAtrasado' : 'completado';
+
+  try {
+    await api.put('/api/task/update', {
+      id: currentTask.id,
+      title: currentTask.title,
+      description: currentTask.description,
+      dueDate: normalizeDateValue(currentTask.dueDate),
+      status: newStatus,
+      creationDate: currentTask.creationDate,
+      sector: { id: currentTask.sector?.id },
+      user: { id: currentTask.user?.id }
+    });
+    fetchTasks();
+  } catch (err) {
+    console.error('Error completing task:', err);
+  }
+};
+
+const normalizeDateValue = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value.slice(0, 10);
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
+};
+
 const formatDate = (value) => {
   if (!value) {
     return 'Sin fecha';
@@ -303,11 +344,10 @@ const formatDate = (value) => {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleDateString('es-CL', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 const statusLabel = (status) => {
@@ -418,6 +458,7 @@ onMounted(fetchTasks);
   grid-template-columns: 350px 1fr;
   gap: 24px;
   min-height: 650px;
+  position: relative;
 }
 
 /* LEFT PANEL */
@@ -652,6 +693,20 @@ onMounted(fetchTasks);
 .danger-btn {
   background-color: #ef4444;
   color: white;
+}
+
+.complete-btn {
+  background-color: #16a34a;
+  color: white;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.complete-btn:hover {
+  background-color: #15803d;
 }
 
 /* RESPONSIVE */

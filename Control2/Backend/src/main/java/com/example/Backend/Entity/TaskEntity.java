@@ -2,6 +2,7 @@ package com.example.Backend.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 
@@ -22,9 +23,11 @@ public class TaskEntity {
     String description;
 
     @Column(name = "creation_date")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     LocalDate creationDate;
 
     @Column(name = "due_date")
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
     LocalDate dueDate;
 
     @ManyToOne
