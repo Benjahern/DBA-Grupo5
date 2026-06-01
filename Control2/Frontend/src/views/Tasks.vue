@@ -58,23 +58,20 @@
       <!-- SEARCH -->
       <input
         type="text"
+        v-model="searchQuery"
+        @keyup.enter="handleSearch"
         placeholder="Buscar tarea..."
         class="search-input"
       />
+      <button @click="handleSearch" class="search-button">🔍</button>
 
       <!-- FILTERS -->
-      <select class="filter-select">
-        <option>Estado</option>
-        <option>Pendiente</option>
-        <option>En progreso</option>
-        <option>Completada</option>
-      </select>
-
-      <select class="filter-select">
-        <option>Prioridad</option>
-        <option>Alta</option>
-        <option>Media</option>
-        <option>Baja</option>
+      <select v-model="selectedStatus" @change="fetchTasksByStatus" class="filter-select">
+        <option value="">Todos los estados</option>
+        <option value="vigente">Vigente</option>
+        <option value="completado">Completado</option>
+        <option value="atrasado">Atrasado</option>
+        <option value="completadoAtrasado">Completado Atrasado</option>
       </select>
 
     </div>
@@ -230,6 +227,8 @@ import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const tasks = ref([]);
+const searchQuery = ref('');
+const selectedStatus = ref('');
 const selectedTaskId = ref(null);
 const loading = ref(false);
 const error = ref(null);
@@ -267,6 +266,19 @@ const fetchTasks = async () => {
     error.value = 'No se pudieron cargar las tareas.';
   } finally {
     loading.value = false;
+  }
+};
+
+const fetchTasksByStatus = async () => {
+  try {
+    const url = selectedStatus.value 
+      ? `/api/task/status?status=${selectedStatus.value}` 
+      : '/api/task';
+    
+    const response = await api.get(url);
+    tasks.value = response.data;
+  } catch (error) {
+    console.error("Error al filtrar por estado:", error);
   }
 };
 
@@ -314,6 +326,19 @@ const closeSeedModal = () => {
 
 const handleTaskCreated = () => {
   fetchTasks();
+};
+
+const handleSearch = async () => {
+  try {
+    const endpoint = searchQuery.value.trim() 
+      ? `/api/task/keyword?keyword=${encodeURIComponent(searchQuery.value)}` 
+      : '/api/task';
+    
+    const response = await api.get(endpoint);
+    tasks.value = response.data;
+  } catch (error) {
+    console.error("Error al buscar tareas:", error);
+  }
 };
 
 const handleTaskUpdated = () => {
