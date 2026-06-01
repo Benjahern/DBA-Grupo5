@@ -17,15 +17,12 @@
         <div v-if="nearestTask" class="nearest-card">
           <div class="nearest-info">
             <h3>{{ nearestTask.title }}</h3>
-            <p>{{ nearestTask.sector?.name || 'Sin sector' }}</p>
-            <span class="nearest-distance">{{ formatDistance(nearestTask.distance) }}</span>
+            <p>{{ nearestTask.sectorName || 'Sin sector' }}</p>
+            <span class="nearest-distance">{{ formatDistance(nearestTask.distanceMetres) }}</span>
           </div>
           <div class="nearest-actions">
             <span :class="statusClass(nearestTask.status)">{{ statusLabel(nearestTask.status) }}</span>
           </div>
-        </div>
-        <div v-else-if="locationError" class="empty-state">
-          No se pudo obtener tu ubicación. Permite el acceso para ver la tarea más cercana.
         </div>
         <div v-else class="empty-state">
           No tienes tareas pendientes
@@ -162,7 +159,6 @@ const avgDistanceGlobal = ref(null)
 
 const loading = ref(true)
 const error = ref(null)
-const locationError = ref(false)
 
 const sectorStats = computed(() => {
   return sectors.value
@@ -210,48 +206,13 @@ const fetchData = async () => {
   }
 }
 
-const fetchNearestTask = () => {
-  if (!navigator.geolocation) {
-    locationError.value = true
-    return
+const fetchNearestTask = async () => {
+  try {
+    const task = await getNearestTask()
+    nearestTask.value = task
+  } catch (err) {
+    console.error('Error fetching nearest task:', err)
   }
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const lat = position.coords.latitude
-      const lon = position.coords.longitude
-
-      try {
-        const task = await getNearestTask(lat, lon)
-        if (task) {
-          task.distance = calculateDistanceSimple(
-            lat, lon,
-            task.sector?.coordinates?.[1] || 0,
-            task.sector?.coordinates?.[0] || 0
-          )
-        }
-        nearestTask.value = task
-      } catch (err) {
-        console.error('Error fetching nearest task:', err)
-      }
-    },
-    () => {
-      locationError.value = true
-    }
-  )
-}
-
-const calculateDistanceSimple = (lat1, lon1, lat2, lon2) => {
-  // Corrección: Math.toRadians no es nativo en JS, lo creamos manualmente
-  const toRadians = (deg) => deg * (Math.PI / 180);
-  const R = 6371000
-  const dLat = toRadians(lat2 - lat1)
-  const dLon = toRadians(lon2 - lon1)
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
 }
 
 const formatDistance = (meters) => {

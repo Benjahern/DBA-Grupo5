@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
 import com.example.Backend.Repository.Projection.UserSectorCountProjection;
+import com.example.Backend.Repository.Projection.ClosestTaskProjection;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -230,6 +231,10 @@ public class TaskService {
             }
         }
         return nearestTask;
+    }
+
+    public ClosestTaskProjection getClosestPendingTask(Long userId) {
+        return taskRepository.findClosestPendingTask(userId);
     }
 
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {

@@ -52,14 +52,15 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
      * 2. ¿Cuál es la tarea más cercana al usuario (que esté pendiente)?
      */
     @Query(value = "SELECT t.id AS taskId, t.title AS title, t.description AS description, " +
-            "t.due_date AS dueDate, t.status AS status, s.name AS sectorName, " +
-            "ST_Distance(s.geo_location::geography, u.geo_location::geography) AS distanceMetres " +
-            "FROM tasks t " +
-            "JOIN sectors s ON t.sector_id = s.id " +
-            "JOIN users u ON u.id = :userId " +
-            "WHERE t.status IN ('vigente', 'atrasado') " +
-            "ORDER BY ST_Distance(s.geo_location::geography, u.geo_location::geography) ASC " +
-            "LIMIT 1", nativeQuery = true)
+        "t.due_date AS dueDate, t.status AS status, s.name AS sectorName, " +
+        "ST_Distance(s.geo_location::geography, u.geo_location::geography) AS distanceMetres " +
+        "FROM tasks t " +
+        "JOIN sectors s ON t.sector_id = s.id " +
+        "JOIN users u ON u.id = :userId " +
+        "WHERE t.user_id = :userId " +
+        "AND t.status IN ('vigente', 'atrasado') " +
+        "ORDER BY ST_Distance(s.geo_location::geography, u.geo_location::geography) ASC " +
+        "LIMIT 1", nativeQuery = true)
     ClosestTaskProjection findClosestPendingTask(@Param("userId") Long userId);
 
     /**

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
 import com.example.Backend.Repository.Projection.UserSectorCountProjection;
+import com.example.Backend.Repository.Projection.ClosestTaskProjection;
 
 import java.util.List;
 import java.util.Map;
@@ -186,6 +187,18 @@ public class TaskController {
         UserEntity user = userRepository.findByUserName(authentication.getName());
         return ResponseEntity.ok(taskService.getNearestPendingTask(lat, lon, user.getId()));
     }
+
+    @GetMapping("/my/closest-task")
+public ResponseEntity<ClosestTaskProjection> getClosestTask(
+        Authentication authentication) {
+
+    UserEntity user = userRepository.findByUserName(authentication.getName());
+
+    ClosestTaskProjection task =
+            taskService.getClosestPendingTask(user.getId());
+
+    return ResponseEntity.ok(task);
+}
 
     @GetMapping("/my/top-sector-2km")
     public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
