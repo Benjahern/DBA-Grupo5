@@ -11,13 +11,15 @@
 
       <!-- BUTTONS -->
       <div class="button-container">
-        <button @click="openSeedModal" class="seed-btn">
-          Generar Carga Masiva
-        </button>
+        <template v-if="isAdmin">
+          <button @click="openSeedModal" class="seed-btn">
+            Generar Carga Masiva
+          </button>
 
-        <button @click="cleanData" class="clean-btn">
-          Limpiar Datos
-        </button>
+          <button @click="cleanData" class="clean-btn">
+            Limpiar Datos
+          </button>
+        </template>
 
         <button class="create-task-btn" @click="openModal">
           + Nueva tarea
@@ -59,20 +61,22 @@
       <input
         type="text"
         v-model="searchQuery"
-        @keyup.enter="handleSearch"
         placeholder="Buscar tarea..."
         class="search-input"
       />
-      <button @click="handleSearch" class="search-button">🔍</button>
 
       <!-- FILTERS -->
-      <select v-model="selectedStatus" @change="fetchTasksByStatus" class="filter-select">
-        <option value="">Todos los estados</option>
+      <select v-model="selectedStatus" class="filter-select">
+        <option value="" selected>Estado</option>
         <option value="vigente">Vigente</option>
         <option value="completado">Completado</option>
         <option value="atrasado">Atrasado</option>
         <option value="completadoAtrasado">Completado Atrasado</option>
       </select>
+
+      <button @click="applyFilters" class="filter-button">
+        Aplicar Filtros 🔍
+      </button>
 
     </div>
 
@@ -217,8 +221,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import api from '../services/http-common.js';
+import { getUser, subscribe } from '../services/auth.js';
 import ModalNewTask from './ModalNewTask.vue';
 import ModalEditTask from './ModalEditTask.vue';
 import ModalDeleteTask from './ModalDeleteTask.vue';
@@ -235,10 +240,15 @@ const error = ref(null);
 const showModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
-const showSeedModal = ref(false);
+const showSeedModal = ref(false);;
 const selectedTask = computed(() =>
   tasks.value.find((task) => task.id === selectedTaskId.value)
 );
+
+const user = ref(getUser());
+let unsubscribe = null;
+
+const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
 const markerPosition = computed(() => {
   if (!selectedTask.value?.sector?.coordinates) return null;
@@ -269,16 +279,30 @@ const fetchTasks = async () => {
   }
 };
 
-const fetchTasksByStatus = async () => {
+const applyFilters = async () => {
   try {
-    const url = selectedStatus.value 
-      ? `/api/task/status?status=${selectedStatus.value}` 
-      : '/api/task';
+    const params = new URLSearchParams();
+    
+    const hasStatus = selectedStatus.value && selectedStatus.value.trim() !== "";
+    const hasKeyword = searchQuery.value && searchQuery.value.trim() !== "";
+
+    if (hasStatus) params.append('status', selectedStatus.value);
+    if (hasKeyword) params.append('keyword', searchQuery.value.trim());
+
+    let url = '/api/task';
+    
+    if (hasStatus && hasKeyword) {
+      url = `/api/task/statusAndKeyword?${params.toString()}`;
+    } else if (hasStatus) {
+      url = `/api/task/status?status=${selectedStatus.value}`;
+    } else if (hasKeyword) {
+      url = `/api/task/keyword?keyword=${searchQuery.value.trim()}`;
+    }
     
     const response = await api.get(url);
     tasks.value = response.data;
   } catch (error) {
-    console.error("Error al filtrar por estado:", error);
+    console.error("Error al aplicar filtros:", error);
   }
 };
 
@@ -328,19 +352,6 @@ const handleTaskCreated = () => {
   fetchTasks();
 };
 
-const handleSearch = async () => {
-  try {
-    const endpoint = searchQuery.value.trim() 
-      ? `/api/task/keyword?keyword=${encodeURIComponent(searchQuery.value)}` 
-      : '/api/task';
-    
-    const response = await api.get(endpoint);
-    tasks.value = response.data;
-  } catch (error) {
-    console.error("Error al buscar tareas:", error);
-  }
-};
-
 const handleTaskUpdated = () => {
   fetchTasks();
   showEditModal.value = false;
@@ -368,7 +379,6 @@ const cleanData = async () => {
     let errorMessage = "Ocurrió un error desconocido";
     
     if (error.response && error.response.data) {
-        // Si el backend envió un mensaje, es capturado
         errorMessage = typeof error.response.data === 'string' 
             ? error.response.data 
             : JSON.stringify(error.response.data);
@@ -458,7 +468,18 @@ const statusClass = (status) => {
   }
 };
 
-onMounted(fetchTasks);
+onMounted(async () => {
+  await fetchTasks();
+  unsubscribe = subscribe((nextUser) => {
+    user.value = nextUser;
+  });
+});
+
+onUnmounted(() => {
+  if (unsubscribe) {
+    unsubscribe();
+  }
+});
 </script>
 
 <style scoped>
@@ -557,6 +578,16 @@ onMounted(fetchTasks);
   border: 1px solid #d1d5db;
   border-radius: 8px;
   background-color: white;
+  font-size: 14px;
+}
+
+.filter-button {
+  background-color: #0162ff;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
   font-size: 14px;
 }
 

@@ -12,4 +12,5 @@ public class SeedRequest {
     private List<Long> targetUserIds;
     private List<Long> targetSectorIds;
     private Map<String, Integer> statusDistribution;
+    private String forceStatus;
 }

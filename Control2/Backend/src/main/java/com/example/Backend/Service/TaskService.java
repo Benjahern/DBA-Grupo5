@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 @Service
 public class TaskService {
@@ -327,12 +326,17 @@ public class TaskService {
 
                 for (int i = 0; i < request.getCountPerUser(); i++) {
                     TaskEntity task = new TaskEntity();
-                    task.setTitle("Tarea " + rand.nextInt(1000));
+                    task.setTitle("Tarea-" + userId + "-" + sectorId + "-" + i);
                     task.setDescription("Generada automáticamente por Seeder");
                     task.setUser(user);
                     task.setSector(sector);
 
-                    String status = getRandomStatus(rand, request.getStatusDistribution());
+                    String status;
+                    if (request.getForceStatus() != null && !request.getForceStatus().isEmpty()) {
+                        status = request.getForceStatus();
+                    } else {
+                        status = getRandomStatus(rand, request.getStatusDistribution());
+                    }
                     task.setStatus(status);
 
                     // --- FECHAS ---
@@ -363,7 +367,7 @@ public class TaskService {
         // Filtrar solo los estados que tienen un peso > 0
         List<Map.Entry<String, Integer>> activeWeights = distribution.entrySet().stream()
                 .filter(e -> e.getValue() != null && e.getValue() > 0)
-                .collect(Collectors.toList());
+                .toList();
 
         if (activeWeights.isEmpty()) return "vigente";
 
@@ -380,7 +384,7 @@ public class TaskService {
                 return entry.getKey();
             }
         }
-        return activeWeights.get(activeWeights.size() - 1).getKey();
+        return activeWeights.getLast().getKey();
     }
 
     @Transactional

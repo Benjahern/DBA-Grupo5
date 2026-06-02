@@ -9,7 +9,7 @@
       <div class="modal-body">
         <div class="field">
           <label>Tareas por usuario:</label>
-          <input v-model.number="seedData.countPerUser" type="number" class="form-input" />
+          <input v-model.number="seedData.countPerUser" type="number" min="1" class="form-input" />
         </div>
 
         <div class="field">
@@ -23,6 +23,17 @@
         </div>
 
         <div class="field">
+          <label>Forzar Estado (Opcional):</label>
+          <select v-model="forceStatus" class="form-input">
+            <option value="">Aleatorio (según distribución)</option>
+            <option value="vigente">Vigente</option>
+            <option value="atrasado">Atrasado</option>
+            <option value="completado">Completado</option>
+            <option value="completadoAtrasado">Completado Atrasado</option>
+          </select>
+        </div>
+
+        <div class="field" v-if="!forceStatus">
           <label>Distribución de estados (%):</label>
           <div class="dist-grid">
             <input v-model.number="seedData.statusDistribution.vigente" type="number" placeholder="Vigente" title="Vigente" />
@@ -51,6 +62,7 @@ import { useAlert } from '../components/Alerts/useAlert.js';
 const emit = defineEmits(['close', 'seeded']);
 const loading = ref(false);
 const error = ref(null);
+const forceStatus = ref("");
 const { show } = useAlert();
 
 const seedData = ref({
@@ -71,24 +83,39 @@ const sectorString = ref("");
 const confirmSeed = async () => {
   error.value = null;
 
-  // Validación básica en Frontend
   if (!seedData.value.countPerUser || !userString.value || !sectorString.value) {
     error.value = "Por favor, completa todos los campos obligatorios.";
     show({ message: error.value, severity: 'warning', autoHideMs: 3000 });
     return;
   }
 
+  if (seedData.value.countPerUser < 1) {
+    error.value = "La cantidad de tareas por usuario debe ser al menos 1.";
+    show({ message: error.value, severity: 'warning', autoHideMs: 3000 });
+    return;
+  }
+
+  if (!forceStatus.value && seedData.value.statusDistribution) {
+    const totalPercentage = Object.values(seedData.value.statusDistribution)
+      .reduce((sum, val) => sum + (val || 0), 0);
+    
+    if (totalPercentage !== 100) {
+      error.value = `La suma de los porcentajes debe ser 100 (actual: ${totalPercentage}).`;
+      show({ message: error.value, severity: 'warning', autoHideMs: 4000 });
+      return;
+    }
+  }
+
   loading.value = true;
 
   try {
-    // Preparación del payload
     const payload = {
       ...seedData.value,
+      forceStatus: forceStatus.value || null, 
       targetUserIds: userString.value.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n)),
       targetSectorIds: sectorString.value.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n))
     };
 
-    // Petición al backend
     await api.post('/api/task/seed', payload);
 
     show({ message: 'Datos generados correctamente', severity: 'success', autoHideMs: 3000 });
@@ -96,10 +123,9 @@ const confirmSeed = async () => {
   } catch (err) {
     console.error("Error al generar datos:", err);
     
-    // Si el backend envió un mensaje claro (ej: "No existen sectores creados"), lo mostramos
     const errorMessage = (err.response && err.response.data) 
-                         ? err.response.data 
-                         : 'Ocurrió un error inesperado al generar los datos.';
+                        ? err.response.data 
+                        : 'Ocurrió un error inesperado al generar los datos.';
     
     error.value = errorMessage;
     show({ message: errorMessage, severity: 'error', autoHideMs: 5000 });

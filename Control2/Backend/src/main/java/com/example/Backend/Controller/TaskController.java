@@ -286,6 +286,7 @@ public ResponseEntity<ClosestTaskProjection> getClosestTask(
     }
 
     @DeleteMapping("/seed/clean")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> cleanDatabase() {
         try {
             taskService.deleteAllTasks();
