@@ -1,9 +1,11 @@
 package com.example.Backend.Controller;
 
+import com.example.Backend.DTO.SeedRequest;
 import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Service.TaskService;
 import com.example.Backend.Repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
 import com.example.Backend.Repository.Projection.UserSectorCountProjection;
+import com.example.Backend.Repository.Projection.ClosestTaskProjection;
 
 import java.util.List;
 import java.util.Map;
@@ -185,6 +188,18 @@ public class TaskController {
         return ResponseEntity.ok(taskService.getNearestPendingTask(lat, lon, user.getId()));
     }
 
+    @GetMapping("/my/closest-task")
+public ResponseEntity<ClosestTaskProjection> getClosestTask(
+        Authentication authentication) {
+
+    UserEntity user = userRepository.findByUserName(authentication.getName());
+
+    ClosestTaskProjection task =
+            taskService.getClosestPendingTask(user.getId());
+
+    return ResponseEntity.ok(task);
+}
+
     @GetMapping("/my/top-sector-2km")
     public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
         UserEntity user = userRepository.findByUserName(authentication.getName());
@@ -257,4 +272,32 @@ public class TaskController {
         return ResponseEntity.ok(taskService.getAverageDistanceOfAllCompletedTasks(user.getId()));
     }
 
+    @PostMapping("/seed")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> seedTasks(@RequestBody SeedRequest request) {
+        try {
+            List<TaskEntity> tasks = taskService.seedTasks(request);
+            return ResponseEntity.ok(tasks);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error inesperado: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/seed/clean")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> cleanDatabase() {
+        try {
+            taskService.deleteAllTasks();
+            return ResponseEntity.ok("Base de datos de tareas limpiada exitosamente.");
+        } catch (IllegalStateException e) {
+            // Captura errores de lógica de negocio
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            // Captura cualquier otro error inesperado
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error crítico en el servidor: " + e.getMessage());
+        }
+    }
 }

@@ -8,8 +8,9 @@ export async function getSectors() {
   return (await api.get('/api/sectors')).data
 }
 
-export async function getNearestTask(lat, lon) {
-  return (await api.get(`/api/task/my/nearest?lat=${lat}&lon=${lon}`)).data
+export const getNearestTask = async () => {
+  const response = await api.get('/api/task/my/closest-task')
+  return response.data
 }
 
 export async function getTopSector2Km() {

@@ -1,5 +1,6 @@
 package com.example.Backend.Service;
 
+import com.example.Backend.DTO.SeedRequest;
 import com.example.Backend.Entity.SectorEntity;
 import com.example.Backend.Entity.TaskData;
 import com.example.Backend.Entity.TaskEntity;
@@ -13,15 +14,16 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import com.example.Backend.Repository.Projection.DistanceProjection;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
 import com.example.Backend.Repository.Projection.UserSectorCountProjection;
+import com.example.Backend.Repository.Projection.ClosestTaskProjection;
 
 import java.time.LocalDate;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 @Service
 public class TaskService {
@@ -230,6 +232,10 @@ public class TaskService {
         return nearestTask;
     }
 
+    public ClosestTaskProjection getClosestPendingTask(Long userId) {
+        return taskRepository.findClosestPendingTask(userId);
+    }
+
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
         final double R = 6371000;
         double lat1Rad = Math.toRadians(lat1);
@@ -283,4 +289,128 @@ public class TaskService {
         return result != null ? result.getAverageDistance() : null;
     }
 
+    // Seeder para la creación de múltiples tareas
+    @Transactional
+    public List<TaskEntity> seedTasks(SeedRequest request) {
+        // Validación de existencia de sectores
+        long sectorCount = sectorRepository.count();
+        if (sectorCount == 0) {
+            throw new IllegalStateException("No existen sectores creados. Por favor, crea al menos un sector antes de generar tareas.");
+        }
+
+        // Validación de IDs de sector existentes
+        if (request.getTargetSectorIds() != null) {
+            for (Long sectorId : request.getTargetSectorIds()) {
+                if (!sectorRepository.existsById(sectorId)) {
+                    throw new IllegalArgumentException("El sector con ID " + sectorId + " no existe.");
+                }
+            }
+        }
+
+        // Validación de seguridad para usuarios
+        if (request.getTargetUserIds() == null || request.getTargetSectorIds() == null) {
+            throw new IllegalArgumentException("IDs de usuario o sector no pueden ser nulos");
+        }
+
+        List<TaskEntity> createdTasks = new ArrayList<>();
+        Random rand = new Random();
+        LocalDate today = LocalDate.now();
+
+        for (Long userId : request.getTargetUserIds()) {
+            UserEntity user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado: " + userId));
+
+            for (Long sectorId : request.getTargetSectorIds()) {
+                SectorEntity sector = sectorRepository.findById(sectorId)
+                        .orElseThrow(() -> new RuntimeException("Sector no encontrado: " + sectorId));
+
+                for (int i = 0; i < request.getCountPerUser(); i++) {
+                    TaskEntity task = new TaskEntity();
+                    task.setTitle("Tarea-" + userId + "-" + sectorId + "-" + i);
+                    task.setDescription("Generada automáticamente por Seeder");
+                    task.setUser(user);
+                    task.setSector(sector);
+
+                    String status;
+                    if (request.getForceStatus() != null && !request.getForceStatus().isEmpty()) {
+                        status = request.getForceStatus();
+                    } else {
+                        status = getRandomStatus(rand, request.getStatusDistribution());
+                    }
+                    task.setStatus(status);
+
+                    // --- FECHAS ---
+                    if (status.toLowerCase().contains("atrasado")) {
+                        // Si es atrasado, dueDate es en el pasado
+                        int randomDays = rand.nextInt(30) + 1;
+                        task.setDueDate(today.minusDays(randomDays));
+                        // creationDate debe ser anterior a la fecha de vencimiento
+                        task.setCreationDate(task.getDueDate().minusDays(rand.nextInt(10) + 1));
+                    } else {
+                        // Si es vigente, dueDate es en el futuro
+                        task.setCreationDate(today);
+                        int randomDays = rand.nextInt(30) + 1;
+                        task.setDueDate(today.plusDays(randomDays));
+                    }
+
+                    TaskEntity savedTask = taskRepository.save(task);
+                    createdTasks.add(savedTask);
+                }
+            }
+        }
+        return createdTasks;
+    }
+
+    private String getRandomStatus(Random rand, Map<String, Integer> distribution) {
+        if (distribution == null || distribution.isEmpty()) return "vigente";
+
+        // Filtrar solo los estados que tienen un peso > 0
+        List<Map.Entry<String, Integer>> activeWeights = distribution.entrySet().stream()
+                .filter(e -> e.getValue() != null && e.getValue() > 0)
+                .toList();
+
+        if (activeWeights.isEmpty()) return "vigente";
+
+        // Calcular la suma total de los pesos válidos
+        int totalWeight = activeWeights.stream().mapToInt(Map.Entry::getValue).sum();
+
+        // Generar un número aleatorio entre 0 y el total
+        int r = rand.nextInt(totalWeight);
+        int cumulative = 0;
+
+        for (Map.Entry<String, Integer> entry : activeWeights) {
+            cumulative += entry.getValue();
+            if (r < cumulative) {
+                return entry.getKey();
+            }
+        }
+        return activeWeights.getLast().getKey();
+    }
+
+    @Transactional
+    public void deleteAllTasks() {
+
+        List<TaskEntity> allTasks = taskRepository.findAll();
+
+        for (TaskEntity task : allTasks) {
+            if (task.getSector() != null) {
+                SectorEntity sector = sectorRepository.findById(task.getSector().getId())
+                        .orElse(null);
+                if (sector != null) {
+
+                    List<TaskData> sectorTaskDataList = sector.getTaskList();
+                    deleteTaskData(sectorTaskDataList, task.getId());
+
+                    sector.setTaskList(sectorTaskDataList);
+                    sectorRepository.save(sector);
+                }
+            }
+
+            if (notificationService != null) {
+                notificationService.deleteByTaskId(task.getId());
+            }
+        }
+
+        taskRepository.deleteAll();
+    }
 }

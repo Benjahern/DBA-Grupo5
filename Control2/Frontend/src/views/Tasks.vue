@@ -9,9 +9,22 @@
         <p>Administra las tareas geoespaciales del sistema</p>
       </div>
 
-      <button class="create-task-btn" @click="openModal">
-        + Nueva tarea
-      </button>
+      <!-- BUTTONS -->
+      <div class="button-container">
+        <template v-if="isAdmin">
+          <button @click="openSeedModal" class="seed-btn">
+            Generar Carga Masiva
+          </button>
+
+          <button @click="cleanData" class="clean-btn">
+            Limpiar Datos
+          </button>
+        </template>
+
+        <button class="create-task-btn" @click="openModal">
+          + Nueva tarea
+        </button>
+      </div>
 
     </div>
 
@@ -35,30 +48,35 @@
       @deleted="handleTaskDeleted"
     />
 
+    <ModalSeedTasks
+      v-if="showSeedModal"
+      @close="closeSeedModal"
+      @seeded="handleTaskSeeded"
+    />
+
     <!-- TOOLBAR -->
     <div class="tasks-toolbar">
 
       <!-- SEARCH -->
       <input
         type="text"
+        v-model="searchQuery"
         placeholder="Buscar tarea..."
         class="search-input"
       />
 
       <!-- FILTERS -->
-      <select class="filter-select">
-        <option>Estado</option>
-        <option>Pendiente</option>
-        <option>En progreso</option>
-        <option>Completada</option>
+      <select v-model="selectedStatus" class="filter-select">
+        <option value="" selected>Estado</option>
+        <option value="vigente">Vigente</option>
+        <option value="completado">Completado</option>
+        <option value="atrasado">Atrasado</option>
+        <option value="completadoAtrasado">Completado Atrasado</option>
       </select>
 
-      <select class="filter-select">
-        <option>Prioridad</option>
-        <option>Alta</option>
-        <option>Media</option>
-        <option>Baja</option>
-      </select>
+      <button @click="applyFilters" class="filter-button">
+        Aplicar Filtros 🔍
+      </button>
 
     </div>
 
@@ -203,25 +221,34 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import api from '../services/http-common.js';
+import { getUser, subscribe } from '../services/auth.js';
 import ModalNewTask from './ModalNewTask.vue';
 import ModalEditTask from './ModalEditTask.vue';
 import ModalDeleteTask from './ModalDeleteTask.vue';
+import ModalSeedTasks from './ModalSeedTasks.vue';
 import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const tasks = ref([]);
+const searchQuery = ref('');
+const selectedStatus = ref('');
 const selectedTaskId = ref(null);
 const loading = ref(false);
 const error = ref(null);
 const showModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
-
+const showSeedModal = ref(false);;
 const selectedTask = computed(() =>
   tasks.value.find((task) => task.id === selectedTaskId.value)
 );
+
+const user = ref(getUser());
+let unsubscribe = null;
+
+const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
 const markerPosition = computed(() => {
   if (!selectedTask.value?.sector?.coordinates) return null;
@@ -249,6 +276,33 @@ const fetchTasks = async () => {
     error.value = 'No se pudieron cargar las tareas.';
   } finally {
     loading.value = false;
+  }
+};
+
+const applyFilters = async () => {
+  try {
+    const params = new URLSearchParams();
+    
+    const hasStatus = selectedStatus.value && selectedStatus.value.trim() !== "";
+    const hasKeyword = searchQuery.value && searchQuery.value.trim() !== "";
+
+    if (hasStatus) params.append('status', selectedStatus.value);
+    if (hasKeyword) params.append('keyword', searchQuery.value.trim());
+
+    let url = '/api/task';
+    
+    if (hasStatus && hasKeyword) {
+      url = `/api/task/statusAndKeyword?${params.toString()}`;
+    } else if (hasStatus) {
+      url = `/api/task/status?status=${selectedStatus.value}`;
+    } else if (hasKeyword) {
+      url = `/api/task/keyword?keyword=${searchQuery.value.trim()}`;
+    }
+    
+    const response = await api.get(url);
+    tasks.value = response.data;
+  } catch (error) {
+    console.error("Error al aplicar filtros:", error);
   }
 };
 
@@ -286,6 +340,14 @@ const closeDeleteModal = () => {
   showDeleteModal.value = false;
 };
 
+const openSeedModal = () => {
+  showSeedModal.value = true;
+};
+
+const closeSeedModal = () => {
+  showSeedModal.value = false;
+};
+
 const handleTaskCreated = () => {
   fetchTasks();
 };
@@ -299,6 +361,32 @@ const handleTaskDeleted = () => {
   selectedTaskId.value = null;
   fetchTasks();
   showDeleteModal.value = false;
+};
+
+const handleTaskSeeded = () => {
+  closeSeedModal();
+  fetchTasks();
+};
+
+const cleanData = async () => {
+  if (!confirm("¿Estás seguro de que deseas borrar todas las tareas?")) return;
+  
+  try {
+    await api.delete('/api/task/seed/clean');
+    alert("Datos eliminados correctamente");
+    handleTaskCreated(); 
+  } catch (error) {
+    let errorMessage = "Ocurrió un error desconocido";
+    
+    if (error.response && error.response.data) {
+        errorMessage = typeof error.response.data === 'string' 
+            ? error.response.data 
+            : JSON.stringify(error.response.data);
+    }
+    
+    console.error("Error al limpiar:", errorMessage);
+    alert("Error: " + errorMessage);
+  }
 };
 
 const completeTask = async () => {
@@ -380,7 +468,18 @@ const statusClass = (status) => {
   }
 };
 
-onMounted(fetchTasks);
+onMounted(async () => {
+  await fetchTasks();
+  unsubscribe = subscribe((nextUser) => {
+    user.value = nextUser;
+  });
+});
+
+onUnmounted(() => {
+  if (unsubscribe) {
+    unsubscribe();
+  }
+});
 </script>
 
 <style scoped>
@@ -410,7 +509,7 @@ onMounted(fetchTasks);
   color: #666;
 }
 
-/* BUTTON */
+/* BUTTONS */
 
 .create-task-btn {
   background-color: #374151;
@@ -422,8 +521,39 @@ onMounted(fetchTasks);
   font-size: 14px;
 }
 
+.seed-btn {
+  background-color: #000000;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
 .create-task-btn:hover {
   background-color: #1f2937;
+}
+
+.button-container {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 15px;           
+  margin-bottom: 20px;
+}
+
+.clean-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.clean-btn:hover {
+  background-color: #dc2626;
 }
 
 /* TOOLBAR */
@@ -448,6 +578,16 @@ onMounted(fetchTasks);
   border: 1px solid #d1d5db;
   border-radius: 8px;
   background-color: white;
+  font-size: 14px;
+}
+
+.filter-button {
+  background-color: #0162ff;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
   font-size: 14px;
 }
 
