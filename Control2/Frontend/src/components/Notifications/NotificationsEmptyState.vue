@@ -32,7 +32,7 @@
 }
 
 h2 {
-  color: rgb(0, 0, 0);
+  color: black;
   margin-bottom: 10px;
 }
 

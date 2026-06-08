@@ -198,6 +198,14 @@
               Editar
             </button>
 
+            <button
+              class="success-btn"
+              :disabled="!selectedTask || isTaskCompleted(selectedTask)"
+              @click="markTaskCompleted"
+            >
+              {{ isTaskCompleted(selectedTask) ? 'Completada' : 'Marcar como completada' }}
+            </button>
+
             <button class="danger-btn" @click="openDeleteModal">
               Eliminar
             </button>
@@ -348,6 +356,64 @@ const closeSeedModal = () => {
   showSeedModal.value = false;
 };
 
+const isTaskCompleted = (task) => {
+  if (!task) {
+    return false;
+  }
+  return task.status === 'completado' || task.status === 'completadoAtrasado';
+};
+
+const resolveCompletionStatus = (task) => {
+  if (!task?.dueDate) {
+    return 'completado';
+  }
+
+  let dueDateValue = task.dueDate;
+  if (typeof dueDateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dueDateValue)) {
+    const [year, month, day] = dueDateValue.split('-').map((part) => Number(part));
+    dueDateValue = new Date(year, month - 1, day);
+  } else {
+    dueDateValue = new Date(dueDateValue);
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (dueDateValue instanceof Date && !Number.isNaN(dueDateValue.getTime())) {
+    return dueDateValue < today ? 'completadoAtrasado' : 'completado';
+  }
+
+  return 'completado';
+};
+
+const markTaskCompleted = async () => {
+  if (!selectedTask.value || isTaskCompleted(selectedTask.value)) {
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+
+  try {
+    const task = selectedTask.value;
+    await api.put('/api/task/update', {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      status: resolveCompletionStatus(task),
+      creationDate: task.creationDate,
+      sector: { id: task.sector?.id },
+      user: { id: task.user?.id }
+    });
+    await fetchTasks();
+  } catch (err) {
+    console.error('Error completing task:', err);
+    error.value = 'No se pudo completar la tarea.';
+  } finally {
+    loading.value = false;
+  }
+};
+
 const handleTaskCreated = () => {
   fetchTasks();
 };
@@ -428,6 +494,17 @@ const formatDate = (value) => {
   if (!value) {
     return 'Sin fecha';
   }
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map((part) => Number(part));
+    const localDate = new Date(year, month - 1, day);
+    return localDate.toLocaleDateString('es-CL', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -818,6 +895,7 @@ onUnmounted(() => {
 }
 
 .secondary-btn,
+.success-btn,
 .danger-btn {
   padding: 12px 18px;
   border: none;
@@ -828,6 +906,16 @@ onUnmounted(() => {
 .secondary-btn {
   background-color: #374151;
   color: white;
+}
+
+.success-btn {
+  background-color: #16a34a;
+  color: white;
+}
+
+.success-btn:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
 }
 
 .danger-btn {

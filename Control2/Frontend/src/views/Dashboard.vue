@@ -16,9 +16,20 @@
         <h2 class="section-title">📍 Tarea más cercana (Pendiente)</h2>
         <div v-if="nearestTask" class="nearest-card">
           <div class="nearest-info">
-            <h3>{{ nearestTask.title }}</h3>
-            <p>{{ nearestTask.sectorName || 'Sin sector' }}</p>
-            <span class="nearest-distance">{{ formatDistance(nearestTask.distanceMetres) }}</span>
+            <div class="nearest-row">
+              <span class="nearest-label">Tarea:</span>
+              <span class="nearest-value">{{ nearestTask.title }}</span>
+            </div>
+            <div class="nearest-row">
+              <span class="nearest-label">Sector:</span>
+              <span class="nearest-value">{{ nearestTask.sectorName || 'Sin sector' }}</span>
+            </div>
+            <div class="nearest-row">
+              <span class="nearest-label">Distancia:</span>
+              <span class="nearest-distance">
+                {{ nearestTask.distanceMetres != null ? formatDistance(nearestTask.distanceMetres) : 'Sin distancia' }}
+              </span>
+            </div>
           </div>
           <div class="nearest-actions">
             <span :class="statusClass(nearestTask.status)">{{ statusLabel(nearestTask.status) }}</span>
@@ -249,41 +260,41 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard {
+ .dashboard {
   padding: 32px;
-}
+ }
 
-.header {
+ .header {
   margin-bottom: 28px;
-}
+ }
 
-.header h1 {
+ .header h1 {
   margin: 0;
   font-size: 32px;
-}
+ }
 
-.header p {
+ .header p {
   color: #717070;
   margin-top: 8px;
-}
+ }
 
-.section {
+ .section {
   margin-bottom: 40px;
-}
+ }
 
-.section-title {
+ .section-title {
   font-size: 20px;
   margin-bottom: 16px;
   color: #333;
-}
+ }
 
-.stats-container {
+ .stats-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-}
+ }
 
-.stat-card {
+ .stat-card {
   background: white;
   border-radius: 16px;
   padding: 24px;
@@ -291,30 +302,30 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
+ }
 
-.stat-icon {
+ .stat-icon {
   font-size: 32px;
-}
+ }
 
-.stat-info {
+ .stat-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
+ }
 
-.stat-label {
+ .stat-label {
   font-weight: 600;
   font-size: 16px;
   color: #333;
-}
+ }
 
-.stat-value {
+ .stat-value {
   font-size: 14px;
   color: #666;
-}
+ }
 
-.nearest-card {
+ .nearest-card {
   background: white;
   border-radius: 16px;
   padding: 24px;
@@ -322,92 +333,115 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
+  gap: 16px;
+ }
 
-.nearest-info h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-}
+ .nearest-info {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  flex-wrap: nowrap;
+  gap: 32px;
+  justify-content: space-between;
+  min-width: 0;
+ }
 
-.nearest-info p {
-  margin: 0 0 8px 0;
-  color: #666;
-}
+ .nearest-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+ }
 
-.nearest-distance {
+ .nearest-label {
+  font-weight: 600;
+  color: #334155;
+ }
+
+ .nearest-value {
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+ }
+
+ .nearest-distance {
   color: #2563eb;
   font-weight: 600;
   font-size: 14px;
-}
+ }
 
-.nearest-actions {
+ .nearest-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-}
+ }
 
-.status-vigente,
-.status-pendiente {
+ .status-vigente,
+ .status-pendiente {
   background-color: #dbeafe;
   color: #1d4ed8;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: bold;
-}
+ }
 
-.status-atrasado {
+ .status-atrasado {
   background-color: #fee2e2;
   color: #b91c1c;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: bold;
-}
+ }
 
-.status-completado {
+ .status-completado {
   background-color: #dcfce7;
   color: #166534;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: bold;
-}
+ }
 
-.status-completado-atrasado {
+ .status-completado-atrasado {
   background-color: #fef3c7;
   color: #92400e;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: bold;
-}
+ }
 
-.loading,
-.error,
-.empty-state {
+ .loading,
+ .error,
+ .empty-state {
   text-align: center;
   padding: 40px;
   color: #666;
-}
+ }
 
-.stat-subtitle {
+ .stat-subtitle {
   font-size: 13px;
   color: #717070;
   font-weight: 500;
-}
+ }
 
-.stat-wrapper {
+ .stat-wrapper {
   display: flex;
   flex-direction: column;
-}
+ }
 
-.distance-title {
+ .distance-title {
   font-size: 15px;
   color: #666;
-  margin: 0 0 10px 4px; /* Espacio inferior para separarlo de la tarjeta */
+  margin: 0 0 10px 4px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-}
+ }
+
+
 </style>

@@ -22,7 +22,7 @@ import Navbar from '../components/Layout/Navbar.vue';
 .layout {
   display: flex;
   height: 100vh;
-  width: 100vw;
+  width: 100%;
   overflow: hidden; /* Prohibido el scroll en la ventana global del navegador */
   box-sizing: border-box;
 }
