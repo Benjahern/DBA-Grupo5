@@ -2,6 +2,7 @@ package com.example.Backend.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.locationtech.jts.geom.Point;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
@@ -14,30 +15,37 @@ import java.time.LocalDate;
 public class TaskEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    private Long id;
 
-    @Column(name = "title")
-    String title;
+    private String title;
+    private String description;
 
-    @Column(name = "description")
-    String description;
+    @Column(name = "task_location", columnDefinition = "geometry(Point, 4326)")
+    private Point taskLocation;
 
     @Column(name = "creation_date")
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    LocalDate creationDate;
+    private LocalDate creationDate;
 
     @Column(name = "due_date")
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    LocalDate dueDate;
+    private LocalDate dueDate;
 
-    @ManyToOne
+    @Enumerated(EnumType.STRING)
+    private TaskStatus status;
+
+    public enum TaskStatus {
+        VIGENTE,
+        ATRASADO,
+        COMPLETADO,
+        COMPLETADO_ATRASADO
+    }
+
+    @ManyToOne (fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    UserEntity user;
+    private UserEntity user;
 
-    @ManyToOne
+    @ManyToOne (fetch = FetchType.LAZY)
     @JoinColumn(name = "sector_id")
-    SectorEntity sector;
-
-    @Column(name = "status")
-    String status; // Los estados son vigente, atrasado, completado y completadoAtrasado
+    private SectorEntity sector;
 }

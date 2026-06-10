@@ -1,8 +1,11 @@
 package com.example.Backend.Controller;
 
 import com.example.Backend.DTO.SeedRequest;
+import com.example.Backend.DTO.TaskCreateDTO;
+import com.example.Backend.DTO.TaskResponseDTO;
 import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
+import com.example.Backend.Mapper.TaskMapper;
 import com.example.Backend.Service.TaskService;
 import com.example.Backend.Repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -24,10 +27,12 @@ public class TaskController {
 
     private final TaskService taskService;
     private final UserRepository userRepository;
+    private final TaskMapper taskMapper;
 
-    public TaskController(TaskService taskService, UserRepository userRepository) {
+    public TaskController(TaskService taskService, UserRepository userRepository, TaskMapper taskMapper) {
         this.taskService = taskService;
         this.userRepository = userRepository;
+        this.taskMapper = taskMapper;
     }
 
     @GetMapping
@@ -59,14 +64,13 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<TaskEntity> createTask(@RequestBody TaskEntity task, Authentication authentication){
+    public ResponseEntity<TaskResponseDTO> createTask(@RequestBody TaskCreateDTO dto, Authentication authentication){
         String username = authentication.getName();
         UserEntity currentUser = userRepository.findByUserName(username);
 
-        task.setUser(currentUser);
+        TaskEntity task = taskService.create(dto, currentUser);
 
-        TaskEntity newTask = taskService.create(task);
-        return ResponseEntity.ok(newTask);
+        return ResponseEntity.ok(taskMapper.toResponseDTO(task));
     }
 
 
@@ -116,7 +120,7 @@ public class TaskController {
     }
 
     @RequestMapping("/status")
-    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) String status, Authentication authentication){
+    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) TaskEntity.TaskStatus status, Authentication authentication){
         UserEntity user = userRepository.findByUserName(authentication.getName());
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
@@ -150,7 +154,7 @@ public class TaskController {
     }
 
     @RequestMapping("/statusAndKeyword")
-    public ResponseEntity<List<TaskEntity>> getByStatusAndKeyword(@RequestParam(required = false) String status,
+    public ResponseEntity<List<TaskEntity>> getByStatusAndKeyword(@RequestParam(required = false) TaskEntity.TaskStatus status,
                                                                   @RequestParam(required = false) String keyword,
                                                                   Authentication authentication){
         UserEntity user = userRepository.findByUserName(authentication.getName());

@@ -54,7 +54,7 @@ public class AuthenticationService {
         GeometryFactory geometryFactory = new GeometryFactory();
         Coordinate coordinate = new Coordinate(request.getLongitude(), request.getLatitude());
         Point point = geometryFactory.createPoint(coordinate);
-        user.setGeoLocation(point);
+        user.setUserLocation(point);
 
         UserEntity savedUser = userRepository.save(user);
         String token = jwtService.generateToken(savedUser);

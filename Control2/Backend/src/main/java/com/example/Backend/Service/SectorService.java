@@ -7,6 +7,8 @@ import com.example.Backend.Repository.SectorRepository;
 import jakarta.transaction.Transactional;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.Polygon;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.locationtech.jts.geom.Point;
@@ -23,11 +25,28 @@ public class SectorService {
     public SectorEntity createSectorFromDTO(SectorCreateDTO dto) {
         List<CoordinateDTO> coordsDTO = dto.getCoordinates();
 
+        if (coordsDTO == null || coordsDTO.size() < 3) {
+            throw new IllegalArgumentException(
+                    "Un sector debe tener al menos 3 coordenadas");
+        }
+
         GeometryFactory geometryFactory = new GeometryFactory();
+
+        Coordinate[] coordinates = new Coordinate[coordsDTO.size() + 1];
+        for (int i = 0; i < coordsDTO.size(); i++) {
+            coordinates[i] = new Coordinate(
+                    coordsDTO.get(i).getLongitude(),
+                    coordsDTO.get(i).getLatitude()
+            );
+        }
+
+        coordinates[coordsDTO.size()] = coordinates[0];
+        LinearRing ring = geometryFactory.createLinearRing(coordinates);
+        Polygon polygon = geometryFactory.createPolygon(ring);
 
         SectorEntity sector = new SectorEntity();
         sector.setName(dto.getName());
-        sector.setGeoLocation(geometryFactory.createPoint(new Coordinate(coordsDTO.get(0).getLongitude(), coordsDTO.get(0).getLatitude())));
+        sector.setSectorGeometry(polygon);
 
         return sectorRepository.save(sector);
     }

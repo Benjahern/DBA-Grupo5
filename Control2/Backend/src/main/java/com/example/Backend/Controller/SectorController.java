@@ -29,29 +29,28 @@ public class SectorController {
                 .map(entity -> new SectorResponseDTO(
                         entity.getId(),
                         entity.getName(),
-                        entity.getGeoLocation().toText() // <--- CORREGIDO AQUÍ
+                        entity.getSectorGeometry().toText()
                 ))
                 .collect(Collectors.toList()));
     }
 
     @PostMapping
-    public ResponseEntity<SectorResponseDTO> createSector(@RequestBody SectorCreateDTO sectorDTO) {
-        // 1. Validación básica de contrato
-        if (sectorDTO.getCoordinates() == null || sectorDTO.getCoordinates().size() < 3) {
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<?> createSector(@RequestBody SectorCreateDTO sectorDTO) {
+
+        try {
+            SectorEntity savedSector = sectorService.createSectorFromDTO(sectorDTO);
+
+            SectorResponseDTO response = new SectorResponseDTO(
+                    savedSector.getId(),
+                    savedSector.getName(),
+                    savedSector.getSectorGeometry().toText()
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-
-        // 2. Llamada al servicio
-        SectorEntity savedSector = sectorService.createSectorFromDTO(sectorDTO);
-
-        // 3. Transformación a DTO de respuesta
-        SectorResponseDTO response = new SectorResponseDTO(
-                savedSector.getId(),
-                savedSector.getName(),
-                savedSector.getGeoLocation().toText()
-        );
-
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")

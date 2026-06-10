@@ -20,20 +20,20 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
 
     public List<TaskEntity> findBySector_Id(Long sectorId);
 
-    public List<TaskEntity> findByStatus(String status);
+    public List<TaskEntity> findByStatus(TaskEntity.TaskStatus status);
 
     @Query("SELECT t FROM TaskEntity t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     public List<TaskEntity> findByKeyword(@Param("keyword") String keyword);
 
     @Query("SELECT t FROM TaskEntity t WHERE (t.status = :status) AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    public List<TaskEntity> findByStatusAndByKeyword(@Param("status") String status, @Param("keyword") String keyword);
+    public List<TaskEntity> findByStatusAndByKeyword(@Param("status") TaskEntity.TaskStatus status, @Param("keyword") String keyword);
 
     public List<TaskEntity> findByDueDateBetween(LocalDate start, LocalDate end);
 
 
     List<TaskEntity> findByUserId(Long userId);
 
-    List<TaskEntity> findByUserIdAndStatus(Long userId, String status);
+    List<TaskEntity> findByUserIdAndStatus(Long userId, TaskEntity.TaskStatus status);
 
     //consultas de la 1 a la 8
 

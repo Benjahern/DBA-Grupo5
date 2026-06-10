@@ -27,14 +27,13 @@ public class UserEntity {
     @Column(name = "email")
     String email;
 
-
-    @Column(name= "pass")
+    @Column(name = "pass")
     @JsonIgnore
     String password;
 
     @JsonIgnore
-    @Column(columnDefinition = "geometry(Point, 4326)")
-    private Point geoLocation;
+    @Column(name = "user_location", columnDefinition = "geometry(Point, 4326)")
+    private Point userLocation;
 
     @JsonIgnore
     @ElementCollection

@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,22 +19,14 @@ public class SectorEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
-    String name;
+    private Long id;
+
+    private String name;
 
     @JsonIgnore
-    @Column(columnDefinition = "geometry(Point, 4326)")
-    private Point geoLocation;
+    @Column(name = "sector_geometry", columnDefinition = "geometry(Polygon, 4326)")
+    private Polygon sectorGeometry;
 
-    @JsonIgnore
-    @ElementCollection
-    @CollectionTable(name = "sector_tasks", joinColumns = @JoinColumn(name = "sector_id"))
-    List<TaskData> taskList = new ArrayList<>();
-
-    public double[] getCoordinates() {
-        if (geoLocation != null) {
-            return new double[]{geoLocation.getX(), geoLocation.getY()};
-        }
-        return null;
-    }
+    @OneToMany(mappedBy = "sector", fetch = FetchType.LAZY)
+    private List<TaskEntity> tasks = new ArrayList<>();
 }
