@@ -11,4 +11,5 @@ public class SectorResponseDTO {
     private Long id;
     private String name;
     private String wktGeometry;
+    private double[] centroid;
 }

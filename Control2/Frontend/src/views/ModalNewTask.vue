@@ -66,6 +66,7 @@
               :url="tileUrl"
               :attribution="attribution"
             />
+            <l-polygon v-if="polygonCoordinates.length > 0" :lat-lngs="polygonCoordinates" color="#9333ea" />
             <l-marker v-if="selectedLatLng" :lat-lng="selectedLatLng" />
           </l-map>
         </div>
@@ -88,7 +89,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import api from '../services/http-common.js';
-import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
+import { LMap, LMarker, LTileLayer, LPolygon } from '@vue-leaflet/vue-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAlert } from '../components/Alerts/useAlert.js';
 
@@ -114,6 +115,17 @@ const attribution = '&copy; OpenStreetMap contributors';
 const selectedSector = computed(() =>
   sectors.value.find((sector) => sector.id === Number(form.value.sectorId))
 );
+
+const parseWktPolygon = (wkt) => {
+  if (!wkt || !wkt.startsWith('POLYGON')) return [];
+  const coordsString = wkt.replace('POLYGON ((', '').replace('POLYGON((', '').replace('))', '');
+  return coordsString.split(',').map(pair => {
+    const [lng, lat] = pair.trim().split(/\s+/);
+    return [Number(lat), Number(lng)]; // [lat, lng] for Leaflet
+  });
+};
+
+const polygonCoordinates = computed(() => parseWktPolygon(selectedSector.value?.wktGeometry));
 
 const selectedLatLng = computed(() => getSectorLatLng(selectedSector.value));
 
@@ -173,6 +185,9 @@ const handleSubmit = async () => {
 const getSectorLatLng = (sector) => {
   if (!sector) {
     return null;
+  }
+  if (sector.centroid && sector.centroid.length >= 2) {
+    return [sector.centroid[1], sector.centroid[0]];
   }
   if (sector.geoLocation?.coordinates?.length >= 2) {
     return [sector.geoLocation.coordinates[1], sector.geoLocation.coordinates[0]];

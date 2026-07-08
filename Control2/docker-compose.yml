@@ -31,6 +31,7 @@ services:
       CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS}
       CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS}
       CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS}
+      TZ: America/Santiago
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:

@@ -29,7 +29,8 @@ public class SectorController {
                 .map(entity -> new SectorResponseDTO(
                         entity.getId(),
                         entity.getName(),
-                        entity.getGeoLocation().toText() // <--- CORREGIDO AQUÍ
+                        entity.getGeoLocation().toText(),
+                        entity.getCentroid()
                 ))
                 .collect(Collectors.toList()));
     }
@@ -48,7 +49,8 @@ public class SectorController {
         SectorResponseDTO response = new SectorResponseDTO(
                 savedSector.getId(),
                 savedSector.getName(),
-                savedSector.getGeoLocation().toText()
+                savedSector.getGeoLocation().toText(),
+                savedSector.getCentroid()
         );
 
         return ResponseEntity.ok(response);
@@ -57,5 +59,27 @@ public class SectorController {
     @GetMapping("/{id}")
     public ResponseEntity<SectorEntity> getSector(@PathVariable Long id) {
         return ResponseEntity.ok(sectorService.getSectorById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<SectorResponseDTO> updateSector(@PathVariable Long id, @RequestBody SectorCreateDTO sectorDTO) {
+        SectorEntity updatedSector = sectorService.updateSector(id, sectorDTO);
+        SectorResponseDTO response = new SectorResponseDTO(
+                updatedSector.getId(),
+                updatedSector.getName(),
+                updatedSector.getGeoLocation().toText(),
+                updatedSector.getCentroid()
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteSector(@PathVariable Long id) {
+        try {
+            sectorService.deleteSector(id);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

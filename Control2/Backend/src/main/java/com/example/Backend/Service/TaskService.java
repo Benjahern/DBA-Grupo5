@@ -219,8 +219,8 @@ public class TaskService {
 
         for (TaskEntity task : pendingTasks) {
             if (task.getSector() != null && task.getSector().getGeoLocation() != null) {
-                double taskLat = task.getSector().getGeoLocation().getY();
-                double taskLon = task.getSector().getGeoLocation().getX();
+                double taskLat = task.getSector().getGeoLocation().getCentroid().getY();
+                double taskLon = task.getSector().getGeoLocation().getCentroid().getX();
 
                 double distance = calculateDistance(userLat, userLon, taskLat, taskLon);
                 if (distance < minDistance) {

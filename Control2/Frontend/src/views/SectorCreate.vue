@@ -25,14 +25,26 @@
         </button>
       </div>
 
+      <div v-if="selectedExistingSector" class="selected-sector-panel">
+        <div class="panel-header">
+          <h3>Sector Seleccionado</h3>
+          <button class="close-panel-btn" @click="selectedExistingSector = null">✖</button>
+        </div>
+        <p class="selected-sector-name">{{ selectedExistingSector.name }}</p>
+        <div class="panel-actions">
+          <button class="secondary-btn" @click="showEditModal = true">Editar Nombre</button>
+          <button class="danger-btn" @click="showDeleteModal = true">Eliminar</button>
+        </div>
+      </div>
+
       <div class="sectors-list">
         <div v-if="sectors.length === 0" class="empty-state">
-          Aún no has dibujado ningún sector.
+          Aún no has dibujado ningún sector nuevo.
         </div>
 
         <div v-for="sector in sectors" :key="sector.id" class="sector-card">
           <div class="sector-card-header">
-            <h3>Sector {{ sector.id }}</h3>
+            <h3>Nuevo Sector (Sin guardar)</h3>
             <span>{{ sector.points.length }} puntos</span>
           </div>
 
@@ -48,6 +60,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Modales -->
+    <ModalEditSector 
+      v-if="showEditModal"
+      :sector="selectedExistingSector"
+      @close="showEditModal = false"
+      @updated="handleSectorUpdated"
+    />
+
+    <ModalDeleteSector
+      v-if="showDeleteModal"
+      :sector="selectedExistingSector"
+      @close="showDeleteModal = false"
+      @deleted="handleSectorDeleted"
+    />
   </div>
 </template>
 
@@ -60,9 +87,19 @@ import api from '@/services/http-common.js' // Asegúrate de que esta ruta sea c
 // Importamos Leaflet Draw nativo desde node_modules
 import 'leaflet-draw'
 import 'leaflet-draw/dist/leaflet.draw.css'
+import ModalEditSector from './ModalEditSector.vue'
+import ModalDeleteSector from './ModalDeleteSector.vue'
+import { useAlert } from '../components/Alerts/useAlert.js'
+
+const { show } = useAlert()
 
 const sectors = ref([])
 const newSectorName = ref('')
+const selectedExistingSector = ref(null)
+const showEditModal = ref(false)
+const showDeleteModal = ref(false)
+const dbSectorsMap = new Map() // Mapa para trackear los polígonos de la BD (layerId -> sector)
+let drawnItems = null // Lo declaramos aquí para poder acceder desde loadExistingSectors
 
 onMounted(() => {
   const mapInstance = L.map('map').setView([-33.5984, -70.5758], 13)
@@ -71,7 +108,7 @@ onMounted(() => {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(mapInstance)
 
-  const drawnItems = new L.FeatureGroup()
+  drawnItems = new L.FeatureGroup()
   mapInstance.addLayer(drawnItems)
 
   const drawControl = new L.Control.Draw({
@@ -115,15 +152,65 @@ onMounted(() => {
   })
 
   mapInstance.on(L.Draw.Event.EDITED, (event) => {
-    event.layers.eachLayer((layer) => {
+    event.layers.eachLayer(async (layer) => {
+      // 1. Si es un sector nuevo sin guardar
       updateLayerPoints(layer)
+
+      // 2. Si es un sector que ya existe en la BD
+      const targetId = L.stamp(layer)
+      if (dbSectorsMap.has(targetId)) {
+        const sector = dbSectorsMap.get(targetId)
+        const latlngs = layer.getLatLngs()[0]
+        const updatedPoints = latlngs.map(point => ({
+          latitude: point.lat,
+          longitude: point.lng
+        }))
+
+        try {
+          await api.put(`/api/sectors/${sector.id}`, {
+             name: sector.name,
+             coordinates: updatedPoints
+          })
+          // Actualizamos también el centroid (backend lo hará) pero el tooltip seguirá ahí
+          show({ message: 'Forma del sector actualizada en BD', severity: 'success', autoHideMs: 3000 })
+        } catch (err) {
+          console.error("No se pudo actualizar la forma", err)
+          show({ message: 'Error al actualizar la forma del sector.', severity: 'error', autoHideMs: 5000 })
+          if (window._reloadSectorsMap) window._reloadSectorsMap()
+        }
+      }
     })
   })
 
   mapInstance.on(L.Draw.Event.DELETED, (event) => {
-    event.layers.eachLayer((layer) => {
+    event.layers.eachLayer(async (layer) => {
       const targetId = L.stamp(layer)
+      
+      // 1. Si es un sector nuevo sin guardar
       sectors.value = sectors.value.filter(s => s.layerId !== targetId)
+
+      // 2. Si es un sector de la BD
+      if (dbSectorsMap.has(targetId)) {
+        const sector = dbSectorsMap.get(targetId)
+        try {
+           await api.delete(`/api/sectors/${sector.id}`)
+           dbSectorsMap.delete(targetId)
+           if (selectedExistingSector.value && selectedExistingSector.value.id === sector.id) {
+               selectedExistingSector.value = null
+           }
+           show({ message: 'Sector eliminado correctamente', severity: 'success', autoHideMs: 3000 })
+        } catch (err) {
+           console.error("Error al borrar desde el mapa", err)
+           let errorMessage = 'No se pudo borrar el sector desde el mapa.'
+           if (err.response && err.response.data) {
+             errorMessage = typeof err.response.data === 'string' ? err.response.data : errorMessage
+           } else {
+             errorMessage = 'No se pudo borrar el sector desde el mapa. Es posible que tenga tareas asociadas.'
+           }
+           show({ message: errorMessage, severity: 'error', autoHideMs: 5000 })
+           if (window._reloadSectorsMap) window._reloadSectorsMap()
+        }
+      }
     })
   })
 
@@ -138,7 +225,80 @@ onMounted(() => {
       sector.points = updatedPoints
     }
   }
+
+  // Función para parsear WKT
+  const parseWktPolygon = (wkt) => {
+    if (!wkt || !wkt.startsWith('POLYGON')) return []
+    const coordsString = wkt.replace('POLYGON ((', '').replace('POLYGON((', '').replace('))', '')
+    return coordsString.split(',').map(pair => {
+      const [lng, lat] = pair.trim().split(/\s+/)
+      return [Number(lat), Number(lng)]
+    })
+  }
+
+  // Cargar sectores existentes de la BD y dibujarlos en el mapa
+  const loadExistingSectors = async () => {
+    try {
+      const response = await api.get('/api/sectors')
+      const existingSectors = response.data || []
+      
+      // Limpiar los anteriores de la BD en drawnItems
+      dbSectorsMap.forEach((sector, layerId) => {
+         const layer = drawnItems.getLayer(layerId)
+         if (layer) drawnItems.removeLayer(layer)
+      })
+      dbSectorsMap.clear()
+
+      existingSectors.forEach(sector => {
+        const coords = parseWktPolygon(sector.wktGeometry)
+        if (coords.length > 0) {
+          const polygon = L.polygon(coords, {
+            color: '#2563eb', // Azul para los ya existentes
+            fillColor: '#3b82f6',
+            fillOpacity: 0.4,
+            weight: 2,
+            interactive: true
+          }).addTo(drawnItems) // Añadido a drawnItems para que Leaflet Draw lo pueda editar!
+          
+          polygon.bindTooltip(sector.name, {
+            permanent: true,
+            direction: 'center',
+            className: 'sector-tooltip',
+            opacity: 0.8
+          })
+
+          polygon.on('click', () => {
+            if (selectedExistingSector.value && selectedExistingSector.value.id === sector.id) {
+              selectedExistingSector.value = null
+            } else {
+              selectedExistingSector.value = sector
+            }
+          })
+
+          // Registrar en el mapa
+          dbSectorsMap.set(L.stamp(polygon), sector)
+        }
+      })
+    } catch (err) {
+      console.error('Error fetching existing sectors:', err)
+    }
+  }
+
+  loadExistingSectors()
+  
+  // Exponer loadExistingSectors a window para que las funciones de afuera puedan llamarlo
+  window._reloadSectorsMap = loadExistingSectors
 })
+
+const handleSectorUpdated = () => {
+  if (window._reloadSectorsMap) window._reloadSectorsMap()
+  selectedExistingSector.value = null
+}
+
+const handleSectorDeleted = () => {
+  if (window._reloadSectorsMap) window._reloadSectorsMap()
+  selectedExistingSector.value = null
+}
 
 /**
  * Envía el último sector dibujado al backend
@@ -159,11 +319,27 @@ const saveSector = async () => {
 
   try {
     await api.post('/api/sectors', payload)
-    alert('Sector "' + newSectorName.value + '" guardado con éxito.')
+    show({ message: 'Sector "' + newSectorName.value + '" guardado con éxito.', severity: 'success', autoHideMs: 3000 })
+    
+    // Dibujar el nuevo sector guardado como existente y quitarlo de la lista "dibujada" temporal
+    const coords = sectorToSave.points.map(p => [p[0], p[1]])
+    const polygon = L.polygon(coords, {
+      color: '#2563eb',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.4,
+      weight: 2,
+      interactive: false
+    })
+    // Para simplificar, recargamos la página o podríamos simplemente añadirlo al mapa.
+    // Vamos a añadirlo al mapa directamente para una mejor experiencia de usuario.
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+    
     newSectorName.value = '' // Limpiar campo
   } catch (error) {
     console.error('Error al guardar:', error)
-    alert('No se pudo guardar el sector.')
+    show({ message: 'No se pudo guardar el sector.', severity: 'error', autoHideMs: 5000 })
   }
 }
 </script>
@@ -251,6 +427,71 @@ const saveSector = async () => {
   opacity: 0.6;
 }
 
+/* Panel de Sector Seleccionado */
+.selected-sector-panel {
+  padding: 20px 24px;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #2c2c2c;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h3 {
+  margin: 0;
+  color: #a78bfa;
+  font-size: 15px;
+}
+
+.close-panel-btn {
+  background: transparent;
+  border: none;
+  color: #9a9a9a;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.selected-sector-name {
+  color: white;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.secondary-btn {
+  background-color: #4b5563;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  flex: 1;
+}
+
+.danger-btn {
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  flex: 1;
+}
+
 .sectors-list {
   flex: 1;
   overflow-y: auto;
@@ -301,5 +542,15 @@ const saveSector = async () => {
   color: #d1d1d1;
   font-size: 13px;
   font-family: monospace;
+}
+
+:deep(.sector-tooltip) {
+  background-color: rgba(30, 41, 59, 0.9);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  padding: 4px 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
 }
 </style>

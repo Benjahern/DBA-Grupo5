@@ -26,7 +26,7 @@ export async function getTopSector5Km() {
 // Promedio de distancia de tareas completadas
 export async function getAverageDistanceOfCompletedTasks() {
   const response = await api.get('/api/task/my/average-distance')
-  return response.data ? response.data : null
+  return response.data != null ? response.data : null
 }
 
 // Sectores con más tareas pendientes (filtrado por usuario)
@@ -44,5 +44,5 @@ export async function getAllUsersCompletedBySector() {
 //  Promedio de distancia global
 export async function getAverageDistanceGlobal() {
   const response = await api.get('/api/task/my/average-distance-global')
-  return response.data ? response.data : null
+  return response.data != null ? response.data : null
 }

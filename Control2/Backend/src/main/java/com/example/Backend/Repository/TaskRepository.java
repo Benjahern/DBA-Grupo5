@@ -53,13 +53,13 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
      */
     @Query(value = "SELECT t.id AS taskId, t.title AS title, t.description AS description, " +
         "t.due_date AS dueDate, t.status AS status, s.name AS sectorName, " +
-        "ST_Distance(s.geo_location::geography, u.geo_location::geography) AS distanceMetres " +
+        "ST_Distance(ST_Centroid(s.geo_location)::geography, u.geo_location::geography) AS distanceMetres " +
         "FROM tasks t " +
         "JOIN sectors s ON t.sector_id = s.id " +
         "JOIN users u ON u.id = :userId " +
         "WHERE t.user_id = :userId " +
         "AND t.status IN ('vigente', 'atrasado') " +
-        "ORDER BY ST_Distance(s.geo_location::geography, u.geo_location::geography) ASC " +
+        "ORDER BY ST_Distance(ST_Centroid(s.geo_location)::geography, u.geo_location::geography) ASC " +
         "LIMIT 1", nativeQuery = true)
     ClosestTaskProjection findClosestPendingTask(@Param("userId") Long userId);
 
@@ -72,7 +72,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
             "JOIN users u ON t.user_id = u.id " +
             "WHERE u.id = :userId " +
             "AND t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 2000) " +
+            "AND ST_DWithin(ST_Centroid(s.geo_location)::geography, u.geo_location::geography, 2000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -86,7 +86,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
             "JOIN sectors s ON t.sector_id = s.id " +
             "JOIN users u ON u.id = :userId " +
             "WHERE t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 2000) " +
+            "AND ST_DWithin(ST_Centroid(s.geo_location)::geography, u.geo_location::geography, 2000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -94,7 +94,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     /**
      * 4. ¿Cuál es el promedio de distancia de las tareas completadas respecto a la ubicación del usuario?
      */
-    @Query(value = "SELECT AVG(ST_Distance(s.geo_location::geography, u.geo_location::geography)) AS averageDistance " +
+    @Query(value = "SELECT AVG(ST_Distance(ST_Centroid(s.geo_location)::geography, u.geo_location::geography)) AS averageDistance " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
             "JOIN users u ON u.id = :userId " +
@@ -133,7 +133,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
             "JOIN users u ON t.user_id = u.id " +
             "WHERE u.id = :userId " +
             "AND t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 5000) " +
+            "AND ST_DWithin(ST_Centroid(s.geo_location)::geography, u.geo_location::geography, 5000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -147,7 +147,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
             "JOIN sectors s ON t.sector_id = s.id " +
             "JOIN users u ON u.id = :userId " +
             "WHERE t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 5000) " +
+            "AND ST_DWithin(ST_Centroid(s.geo_location)::geography, u.geo_location::geography, 5000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -155,7 +155,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     /**
      * 8. ¿Cuál es el promedio de distancia entre las tareas completadas y el punto registrado del usuario?
      */
-    @Query(value = "SELECT AVG(ST_Distance(s.geo_location::geography, u.geo_location::geography)) AS averageDistance " +
+    @Query(value = "SELECT AVG(ST_Distance(ST_Centroid(s.geo_location)::geography, u.geo_location::geography)) AS averageDistance " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
             "CROSS JOIN users u " +

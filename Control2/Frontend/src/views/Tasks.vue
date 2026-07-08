@@ -12,10 +12,6 @@
       <!-- BUTTONS -->
       <div class="button-container">
         <template v-if="isAdmin">
-          <button @click="openSeedModal" class="seed-btn">
-            Generar Carga Masiva
-          </button>
-
           <button @click="cleanData" class="clean-btn">
             Limpiar Datos
           </button>
@@ -48,11 +44,6 @@
       @deleted="handleTaskDeleted"
     />
 
-    <ModalSeedTasks
-      v-if="showSeedModal"
-      @close="closeSeedModal"
-      @seeded="handleTaskSeeded"
-    />
 
     <!-- TOOLBAR -->
     <div class="tasks-toolbar">
@@ -175,6 +166,7 @@
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution="&copy; OpenStreetMap contributors"
                 />
+                <l-polygon v-if="polygonCoordinates.length > 0" :lat-lngs="polygonCoordinates" color="#9333ea" />
                 <l-marker v-if="markerPosition" :lat-lng="markerPosition" />
               </l-map>
             </div>
@@ -185,14 +177,6 @@
           </div>
 
           <div class="details-actions">
-
-            <button
-              v-if="selectedTask.status !== 'completado' && selectedTask.status !== 'completadoAtrasado'"
-              class="complete-btn"
-              @click="completeTask"
-            >
-              Completar
-            </button>
 
             <button class="secondary-btn" @click="openEditModal">
               Editar
@@ -235,8 +219,7 @@ import { getUser, subscribe } from '../services/auth.js';
 import ModalNewTask from './ModalNewTask.vue';
 import ModalEditTask from './ModalEditTask.vue';
 import ModalDeleteTask from './ModalDeleteTask.vue';
-import ModalSeedTasks from './ModalSeedTasks.vue';
-import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
+import { LMap, LMarker, LTileLayer, LPolygon } from '@vue-leaflet/vue-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const tasks = ref([]);
@@ -248,7 +231,6 @@ const error = ref(null);
 const showModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
-const showSeedModal = ref(false);;
 const selectedTask = computed(() =>
   tasks.value.find((task) => task.id === selectedTaskId.value)
 );
@@ -259,12 +241,19 @@ let unsubscribe = null;
 const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
 const markerPosition = computed(() => {
-  if (!selectedTask.value?.sector?.coordinates) return null;
-  const coords = selectedTask.value.sector.coordinates;
-  if (coords && coords.length >= 2) {
-    return [coords[1], coords[0]]; // [latitude, longitude]
+  if (!selectedTask.value?.sector?.centroid) return null;
+  const centroid = selectedTask.value.sector.centroid;
+  if (centroid && centroid.length >= 2) {
+    return [centroid[1], centroid[0]]; // [latitude, longitude]
   }
   return null;
+});
+
+const polygonCoordinates = computed(() => {
+  if (!selectedTask.value?.sector?.coordinates) return [];
+  const coords = selectedTask.value.sector.coordinates;
+  // Convert [lng, lat] to [lat, lng] for Leaflet
+  return coords.map(coord => [coord[1], coord[0]]);
 });
 
 const mapCenter = computed(() => markerPosition.value || [-33.4489, -70.6693]);
@@ -348,14 +337,6 @@ const closeDeleteModal = () => {
   showDeleteModal.value = false;
 };
 
-const openSeedModal = () => {
-  showSeedModal.value = true;
-};
-
-const closeSeedModal = () => {
-  showSeedModal.value = false;
-};
-
 const isTaskCompleted = (task) => {
   if (!task) {
     return false;
@@ -429,11 +410,6 @@ const handleTaskDeleted = () => {
   showDeleteModal.value = false;
 };
 
-const handleTaskSeeded = () => {
-  closeSeedModal();
-  fetchTasks();
-};
-
 const cleanData = async () => {
   if (!confirm("¿Estás seguro de que deseas borrar todas las tareas?")) return;
   
@@ -452,29 +428,6 @@ const cleanData = async () => {
     
     console.error("Error al limpiar:", errorMessage);
     alert("Error: " + errorMessage);
-  }
-};
-
-const completeTask = async () => {
-  if (!selectedTask.value) return;
-
-  const currentTask = selectedTask.value;
-  const newStatus = currentTask.status === 'atrasado' ? 'completadoAtrasado' : 'completado';
-
-  try {
-    await api.put('/api/task/update', {
-      id: currentTask.id,
-      title: currentTask.title,
-      description: currentTask.description,
-      dueDate: normalizeDateValue(currentTask.dueDate),
-      status: newStatus,
-      creationDate: currentTask.creationDate,
-      sector: { id: currentTask.sector?.id },
-      user: { id: currentTask.user?.id }
-    });
-    fetchTasks();
-  } catch (err) {
-    console.error('Error completing task:', err);
   }
 };
 
@@ -590,16 +543,6 @@ onUnmounted(() => {
 
 .create-task-btn {
   background-color: #374151;
-  color: white;
-  border: none;
-  padding: 12px 18px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.seed-btn {
-  background-color: #000000;
   color: white;
   border: none;
   padding: 12px 18px;

@@ -11,6 +11,6 @@ import java.util.List;
 @Repository
 public interface SectorRepository extends JpaRepository<SectorEntity, Long>{
 
-    @Query(value = "SELECT * FROM sectors s WHERE ST_DistanceSphere(s.geo_location, :userLocation) <= :radiusInMetres", nativeQuery = true)
+    @Query(value = "SELECT * FROM sectors s WHERE ST_Distance(s.geo_location::geography, :userLocation::geography) <= :radiusInMetres", nativeQuery = true)
     List<SectorEntity> findSectorsWithinRadius(@Param("userLocation") Point userLocation, @Param("radiusInMetres") double radiusInMetres);
 }
