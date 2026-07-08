@@ -1,0 +1,81 @@
+# Docker Compose carga automáticamente el archivo .env que está
+# en el mismo directorio. Todas las variables ${VAR} se resuelven desde ahí.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: bda_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./BD/createDb.sql:/docker-entrypoint-initdb.d/createDb.sql:ro
+      - ./Backend/src/main/resources/db/index.sql:/docker-entrypoint-initdb.d/index.sql:ro
+      - ./Backend/src/main/resources/db/procedure.sql:/docker-entrypoint-initdb.d/procedure.sql:ro
+      - ./Backend/src/main/resources/db/triggers.sql:/docker-entrypoint-initdb.d/triggers.sql:ro
+      - ./Backend/src/main/resources/db/procedures2.sql:/docker-entrypoint-initdb.d/procedures2.sql:ro
+      - ./Backend/src/main/resources/db/materialized_view.sql:/docker-entrypoint-initdb.d/materialized_view.sql:ro
+      - ./Backend/src/main/resources/db/migration_password.sql:/docker-entrypoint-initdb.d/migration_password.sql:ro
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: dockerfile
+    container_name: bda_backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE}
+      JWT_COOKIE_SAMESITE: ${JWT_COOKIE_SAMESITE}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS}
+      CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS}
+    ports:
+      - "${BACKEND_PORT}:8080"
+    volumes:
+      - ./Backend:/app
+      - gradle_cache:/root/.gradle
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: dockerfile
+    container_name: bda_frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    volumes:
+      - ./Frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:
+  gradle_cache:

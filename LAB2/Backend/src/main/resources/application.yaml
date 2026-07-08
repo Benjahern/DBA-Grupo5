@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: Backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/bda_lab1}
+    username: ${SPRING_DATASOURCE_USERNAME:bda_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+# JWT propio (HS256, cookies HttpOnly)
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-key-must-be-at-least-32-bytes-long-aaaaaaaaaaaa}
+  access-expiration: ${JWT_EXPIRATION:900000}            # 15 min (access token)
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:2592000000} # 30 días (refresh token)
+  cookie-secure: ${JWT_COOKIE_SECURE:false}                # true en prod (HTTPS)
+  cookie-same-site: ${JWT_COOKIE_SAMESITE:Lax}             # Lax para access; refresh usa Strict
+  admin-email: ${ADMIN_EMAIL:admin@gmail.com}
+  admin-initial-password: ${ADMIN_INITIAL_PASSWORD:Admin123!}
+
+# Configuración personalizada de CORS
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS}
+  allowed-headers: ${CORS_ALLOWED_HEADERS:Authorization,Content-Type}
+  allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
