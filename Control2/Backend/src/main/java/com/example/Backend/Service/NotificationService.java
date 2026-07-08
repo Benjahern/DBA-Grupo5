@@ -1,8 +1,10 @@
 package com.example.Backend.Service;
 
+import com.example.Backend.DTO.NotificationDTO;
 import com.example.Backend.Entity.NotificationEntity;
 import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
+import com.example.Backend.Mapper.NotificationMapper;
 import com.example.Backend.Repository.NotificationRepository;
 import com.example.Backend.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,9 @@ public class NotificationService {
     @Autowired
     UserRepository userRepository;
 
+    @Autowired
+    private NotificationMapper notificationMapper;
+
     public NotificationEntity createNotification(String title, String message, String type, UserEntity user, TaskEntity task) {
         NotificationEntity notification = new NotificationEntity();
         notification.setTitle(title);
@@ -33,25 +38,32 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
-    public List<NotificationEntity> getByUser(Long userId) {
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    public List<NotificationDTO> getByUser(Long userId) {
+        return notificationMapper.toDTOList(
+                notificationRepository.findByUserIdOrderByCreatedAtDesc(userId)
+        );
     }
 
-    public List<NotificationEntity> getUnreadByUser(Long userId) {
+    public List<NotificationDTO> getUnreadByUser(Long userId) {
+        return notificationMapper.toDTOList(
+                notificationRepository.findByUserIdAndReadOrderByCreatedAtDesc(userId, false)
+        );
+    }
+
+    private List<NotificationEntity> getUnreadEntitiesByUser(Long userId) {
         return notificationRepository.findByUserIdAndReadOrderByCreatedAtDesc(userId, false);
     }
 
-    public NotificationEntity markAsRead(Long notificationId) {
+    public NotificationDTO markAsRead(Long notificationId) {
         NotificationEntity notification = notificationRepository.findById(notificationId).orElseThrow();
         notification.setRead(true);
-        return notificationRepository.save(notification);
+        NotificationEntity saved = notificationRepository.save(notification);
+        return notificationMapper.toDTO(saved);
     }
 
     public void markAllAsRead(Long userId) {
-        List<NotificationEntity> unreadNotifications = getUnreadByUser(userId);
-        for (NotificationEntity n : unreadNotifications) {
-            n.setRead(true);
-        }
+        List<NotificationEntity> unreadNotifications = getUnreadEntitiesByUser(userId);
+        unreadNotifications.forEach(n -> n.setRead(true));
         notificationRepository.saveAll(unreadNotifications);
     }
 

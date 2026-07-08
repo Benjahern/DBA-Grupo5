@@ -7,6 +7,7 @@ import com.example.Backend.Repository.Projection.SectorCountProjection;
 import com.example.Backend.Repository.Projection.UserSectorCountProjection;
 import com.example.Backend.Repository.Projection.ClosestTaskProjection;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,18 +21,20 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
 
     public List<TaskEntity> findBySector_Id(Long sectorId);
 
-    public List<TaskEntity> findByStatus(TaskEntity.TaskStatus status);
+    public List<TaskEntity> findByStatus(TaskEntity.TaskStatus status, Sort sort);
 
     @Query("SELECT t FROM TaskEntity t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-    public List<TaskEntity> findByKeyword(@Param("keyword") String keyword);
+    public List<TaskEntity> findByKeyword(@Param("keyword") String keyword, Sort sort);
 
     @Query("SELECT t FROM TaskEntity t WHERE (t.status = :status) AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    public List<TaskEntity> findByStatusAndByKeyword(@Param("status") TaskEntity.TaskStatus status, @Param("keyword") String keyword);
+    public List<TaskEntity> findByStatusAndByKeyword(@Param("status") TaskEntity.TaskStatus status, @Param("keyword") String keyword, Sort sort);
 
     public List<TaskEntity> findByDueDateBetween(LocalDate start, LocalDate end);
 
 
     List<TaskEntity> findByUserId(Long userId);
+
+    List<TaskEntity> findByUserIdOrderByIdAsc(Long userId);
 
     List<TaskEntity> findByUserIdAndStatus(Long userId, TaskEntity.TaskStatus status);
 
@@ -53,13 +56,13 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
      */
     @Query(value = "SELECT t.id AS taskId, t.title AS title, t.description AS description, " +
         "t.due_date AS dueDate, t.status AS status, s.name AS sectorName, " +
-        "ST_Distance(s.geo_location::geography, u.geo_location::geography) AS distanceMetres " +
+        "ST_Distance(t.task_location::geography, u.user_location::geography) AS distanceMetres " +
         "FROM tasks t " +
         "JOIN sectors s ON t.sector_id = s.id " +
         "JOIN users u ON u.id = :userId " +
         "WHERE t.user_id = :userId " +
-        "AND t.status IN ('vigente', 'atrasado') " +
-        "ORDER BY ST_Distance(s.geo_location::geography, u.geo_location::geography) ASC " +
+        "AND t.status IN ('VIGENTE', 'ATRASADO') " +
+        "ORDER BY ST_Distance(t.task_location::geography, u.user_location::geography) ASC " +
         "LIMIT 1", nativeQuery = true)
     ClosestTaskProjection findClosestPendingTask(@Param("userId") Long userId);
 
@@ -69,10 +72,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
-            "JOIN users u ON t.user_id = u.id " +
-            "WHERE u.id = :userId " +
-            "AND t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 2000) " +
+            "JOIN users u ON u.id = :userId " +
+            "WHERE t.user_id = :userId " +
+            "AND t.status IN ('COMPLETADO', 'COMPLETADO_ATRASADO') " +
+            "AND ST_DWithin(t.task_location::geography, u.user_location::geography, 2000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -85,8 +88,8 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
             "JOIN users u ON u.id = :userId " +
-            "WHERE t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 2000) " +
+            "WHERE t.status IN ('COMPLETADO', 'COMPLETADO_ATRASADO') " +
+            "AND ST_DWithin(t.task_location::geography, u.user_location::geography, 2000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -94,11 +97,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     /**
      * 4. ¿Cuál es el promedio de distancia de las tareas completadas respecto a la ubicación del usuario?
      */
-    @Query(value = "SELECT AVG(ST_Distance(s.geo_location::geography, u.geo_location::geography)) AS averageDistance " +
+    @Query(value = "SELECT AVG(ST_Distance(t.task_location::geography, u.user_location::geography)) AS averageDistance " +
             "FROM tasks t " +
-            "JOIN sectors s ON t.sector_id = s.id " +
             "JOIN users u ON u.id = :userId " +
-            "WHERE t.user_id = :userId AND t.status IN ('completado', 'completadoAtrasado')", nativeQuery = true)
+            "WHERE t.user_id = :userId AND t.status IN ('COMPLETADO', 'COMPLETADO_ATRASADO')", nativeQuery = true)
     DistanceProjection getAverageDistanceOfUserCompletedTasks(@Param("userId") Long userId);
 
     /**
@@ -107,7 +109,7 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
-            "WHERE t.user_id = :userId AND t.status IN ('vigente', 'atrasado') " +
+            "WHERE t.user_id = :userId AND t.status IN ('VIGENTE', 'ATRASADO') " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC", nativeQuery = true)
     List<SectorCountProjection> findSectorsWithMostPendingTasks(@Param("userId") Long userId);
@@ -130,10 +132,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query(value = "SELECT s.id AS sectorId, s.name AS sectorName, COUNT(t.id) AS taskCount " +
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
-            "JOIN users u ON t.user_id = u.id " +
-            "WHERE u.id = :userId " +
-            "AND t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 5000) " +
+            "JOIN users u ON u.id = :userId " +
+            "WHERE t.user_id = :userId " +
+            "AND t.status IN ('COMPLETADO', 'COMPLETADO_ATRASADO') " +
+            "AND ST_DWithin(t.task_location::geography, u.user_location::geography, 5000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -146,8 +148,8 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
             "FROM tasks t " +
             "JOIN sectors s ON t.sector_id = s.id " +
             "JOIN users u ON u.id = :userId " +
-            "WHERE t.status IN ('completado', 'completadoAtrasado') " +
-            "AND ST_DWithin(s.geo_location::geography, u.geo_location::geography, 5000) " +
+            "WHERE t.status IN ('COMPLETADO', 'COMPLETADO_ATRASADO') " +
+            "AND ST_DWithin(t.task_location::geography, u.user_location::geography, 5000) " +
             "GROUP BY s.id, s.name " +
             "ORDER BY taskCount DESC " +
             "LIMIT 1", nativeQuery = true)
@@ -155,11 +157,10 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     /**
      * 8. ¿Cuál es el promedio de distancia entre las tareas completadas y el punto registrado del usuario?
      */
-    @Query(value = "SELECT AVG(ST_Distance(s.geo_location::geography, u.geo_location::geography)) AS averageDistance " +
+    @Query(value = "SELECT AVG(ST_Distance(t.task_location::geography, u.user_location::geography)) AS averageDistance " +
             "FROM tasks t " +
-            "JOIN sectors s ON t.sector_id = s.id " +
-            "CROSS JOIN users u " +
-            "WHERE u.id = :userId AND t.status IN ('completado', 'completadoAtrasado')", nativeQuery = true)
+            "JOIN users u ON u.id = :userId " +
+            "WHERE t.status IN ('COMPLETADO', 'COMPLETADO_ATRASADO')", nativeQuery = true)
     DistanceProjection getAverageDistanceOfAllCompletedTasksToUser(@Param("userId") Long userId);
 
 }

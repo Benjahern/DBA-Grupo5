@@ -3,6 +3,10 @@ package com.example.Backend.Mapper;
 import com.example.Backend.DTO.CoordinateDTO;
 import com.example.Backend.DTO.TaskResponseDTO;
 import com.example.Backend.Entity.TaskEntity;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -30,12 +34,40 @@ public class TaskMapper {
         }
 
         if (task.getTaskLocation() != null) {
-            dto.setLocation(new CoordinateDTO(
-                    task.getTaskLocation().getY(),
-                    task.getTaskLocation().getX()
-            ));
+            dto.setLocation(toCoordinateDTO(task.getTaskLocation()));
         }
 
         return dto;
+    }
+
+    public CoordinateDTO toCoordinateDTO(Point point) {
+
+        if (point == null) {
+            return null;
+        }
+
+        return new CoordinateDTO(
+                point.getY(),
+                point.getX()
+        );
+    }
+
+    public Point toPoint(CoordinateDTO dto) {
+
+        if (dto == null) {
+            return null;
+        }
+
+        GeometryFactory geometryFactory = new GeometryFactory(
+                new PrecisionModel(),
+                4326
+        );
+
+        return geometryFactory.createPoint(
+                new Coordinate(
+                        dto.getLongitude(),
+                        dto.getLatitude()
+                )
+        );
     }
 }

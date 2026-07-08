@@ -3,6 +3,7 @@ package com.example.Backend.Controller;
 import com.example.Backend.DTO.SeedRequest;
 import com.example.Backend.DTO.TaskCreateDTO;
 import com.example.Backend.DTO.TaskResponseDTO;
+import com.example.Backend.DTO.TaskUpdateDTO;
 import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Mapper.TaskMapper;
@@ -36,7 +37,7 @@ public class TaskController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TaskEntity>> getAllTask(Authentication authentication){
+    public ResponseEntity<List<TaskResponseDTO>> getAllTask(Authentication authentication){
         UserEntity user = userRepository.findByUserName(authentication.getName());
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
@@ -47,7 +48,12 @@ public class TaskController {
         } else {
             taskList = taskService.getByUserId(user.getId());
         }
-        return ResponseEntity.ok(taskList);
+
+        List<TaskResponseDTO> response = taskList.stream()
+                .map(taskMapper::toResponseDTO)
+                .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
@@ -75,17 +81,43 @@ public class TaskController {
 
 
     @PutMapping("/update")
-    public ResponseEntity<TaskEntity> updateTask(@RequestBody TaskEntity task, Authentication authentication){
+    public ResponseEntity<TaskResponseDTO> updateTask(
+            @RequestBody TaskUpdateDTO task,
+            Authentication authentication) {
+
         UserEntity user = userRepository.findByUserName(authentication.getName());
+
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
 
         TaskEntity existingTask = taskService.getTask(task.getId());
-        if (!isAdmin && (existingTask.getUser() == null || !existingTask.getUser().getId().equals(user.getId()))) {
+
+        if (!isAdmin &&
+                (existingTask.getUser() == null ||
+                        !existingTask.getUser().getId().equals(user.getId()))) {
             return ResponseEntity.status(403).build();
         }
+
         TaskEntity updatedTask = taskService.update(task);
-        return ResponseEntity.ok(updatedTask);
+
+        return ResponseEntity.ok(taskMapper.toResponseDTO(updatedTask));
+    }
+
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<Void> completeTask(@PathVariable Long id, Authentication authentication) {
+        UserEntity user = userRepository.findByUserName(authentication.getName());
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
+
+        TaskEntity task = taskService.getTask(id);
+
+        if (!isAdmin && (task.getUser() == null || !task.getUser().getId().equals(user.getId()))) {
+            return ResponseEntity.status(403).build();
+        }
+
+        taskService.completeTask(id);
+
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
@@ -120,7 +152,7 @@ public class TaskController {
     }
 
     @RequestMapping("/status")
-    public ResponseEntity<List<TaskEntity>> getByStatus(@RequestParam(required = false) TaskEntity.TaskStatus status, Authentication authentication){
+    public ResponseEntity<List<TaskResponseDTO>> getByStatus(@RequestParam(required = false) TaskEntity.TaskStatus status, Authentication authentication){
         UserEntity user = userRepository.findByUserName(authentication.getName());
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
@@ -133,11 +165,16 @@ public class TaskController {
                     .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
                     .toList();
         }
-        return ResponseEntity.ok(taskList);
+
+        List<TaskResponseDTO> response = taskList.stream()
+                .map(taskMapper::toResponseDTO)
+                .toList();
+
+        return ResponseEntity.ok(response);
     }
 
     @RequestMapping("/keyword")
-    public ResponseEntity<List<TaskEntity>> getByKeyword(@RequestParam(required = false) String keyword, Authentication authentication){
+    public ResponseEntity<List<TaskResponseDTO>> getByKeyword(@RequestParam(required = false) String keyword, Authentication authentication){
         UserEntity user = userRepository.findByUserName(authentication.getName());
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
@@ -150,13 +187,15 @@ public class TaskController {
                     .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
                     .toList();
         }
-        return ResponseEntity.ok(taskList);
+
+        List<TaskResponseDTO> response = taskList.stream()
+                .map(taskMapper::toResponseDTO)
+                .toList();
+        return ResponseEntity.ok(response);
     }
 
     @RequestMapping("/statusAndKeyword")
-    public ResponseEntity<List<TaskEntity>> getByStatusAndKeyword(@RequestParam(required = false) TaskEntity.TaskStatus status,
-                                                                  @RequestParam(required = false) String keyword,
-                                                                  Authentication authentication){
+    public ResponseEntity<List<TaskResponseDTO>> getByStatusAndKeyword(@RequestParam(required = false) TaskEntity.TaskStatus status, @RequestParam(required = false) String keyword, Authentication authentication){
         UserEntity user = userRepository.findByUserName(authentication.getName());
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().toUpperCase().contains("ADMIN"));
@@ -169,7 +208,11 @@ public class TaskController {
                     .filter(t -> t.getUser() != null && t.getUser().getId().equals(user.getId()))
                     .toList();
         }
-        return ResponseEntity.ok(taskList);
+
+        List<TaskResponseDTO> response = taskList.stream()
+                .map(taskMapper::toResponseDTO)
+                .toList();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/expiring")
@@ -193,16 +236,16 @@ public class TaskController {
     }
 
     @GetMapping("/my/closest-task")
-public ResponseEntity<ClosestTaskProjection> getClosestTask(
-        Authentication authentication) {
+    public ResponseEntity<ClosestTaskProjection> getClosestTask(
+            Authentication authentication) {
 
-    UserEntity user = userRepository.findByUserName(authentication.getName());
+        UserEntity user = userRepository.findByUserName(authentication.getName());
 
-    ClosestTaskProjection task =
-            taskService.getClosestPendingTask(user.getId());
+        ClosestTaskProjection task =
+                taskService.getClosestPendingTask(user.getId());
 
-    return ResponseEntity.ok(task);
-}
+        return ResponseEntity.ok(task);
+    }
 
     @GetMapping("/my/top-sector-2km")
     public ResponseEntity<SectorCountProjection> getTopSectorWithin2Km(Authentication authentication) {
@@ -267,13 +310,6 @@ public ResponseEntity<ClosestTaskProjection> getClosestTask(
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserSectorCountProjection>> getAllUsersCompletedBySector() {
         return ResponseEntity.ok(taskService.getCompletedTasksForEachUserPerSector());
-    }
-
-    //  Promedio de distancia global (todas las completadas)
-    @GetMapping("/my/average-distance-global")
-    public ResponseEntity<Double> getAverageDistanceOfAllCompletedTasks(Authentication authentication) {
-        UserEntity user = userRepository.findByUserName(authentication.getName());
-        return ResponseEntity.ok(taskService.getAverageDistanceOfAllCompletedTasks(user.getId()));
     }
 
     @PostMapping("/seed")

@@ -1,5 +1,6 @@
 package com.example.Backend.Controller;
 
+import com.example.Backend.DTO.NotificationDTO;
 import com.example.Backend.Entity.NotificationEntity;
 import com.example.Backend.Entity.UserEntity;
 import com.example.Backend.Repository.UserRepository;
@@ -26,7 +27,7 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<NotificationEntity>> getNotifications(Authentication authentication) {
+    public ResponseEntity<List<NotificationDTO>> getNotifications(Authentication authentication) {
         UserEntity user = userRepository.findByUserName(authentication.getName());
         return ResponseEntity.ok(notificationService.getByUser(user.getId()));
     }
@@ -38,7 +39,7 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<NotificationEntity> markAsRead(@PathVariable Long id) {
+    public ResponseEntity<NotificationDTO> markAsRead(@PathVariable Long id) {
         return ResponseEntity.ok(notificationService.markAsRead(id));
     }
 

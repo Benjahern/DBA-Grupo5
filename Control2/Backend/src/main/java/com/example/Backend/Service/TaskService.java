@@ -2,9 +2,11 @@ package com.example.Backend.Service;
 
 import com.example.Backend.DTO.SeedRequest;
 import com.example.Backend.DTO.TaskCreateDTO;
+import com.example.Backend.DTO.TaskUpdateDTO;
 import com.example.Backend.Entity.SectorEntity;
 import com.example.Backend.Entity.TaskEntity;
 import com.example.Backend.Entity.UserEntity;
+import com.example.Backend.Mapper.TaskMapper;
 import com.example.Backend.Repository.SectorRepository;
 import com.example.Backend.Repository.TaskRepository;
 import com.example.Backend.Repository.UserRepository;
@@ -14,6 +16,7 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import com.example.Backend.Repository.Projection.SectorCountProjection;
@@ -22,6 +25,7 @@ import com.example.Backend.Repository.Projection.ClosestTaskProjection;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -40,6 +44,9 @@ public class TaskService {
 
     @Autowired
     NotificationService notificationService;
+
+    @Autowired
+    private TaskMapper taskMapper;
 
     private final GeometryFactory geometryFactory = new GeometryFactory();
 
@@ -92,12 +99,43 @@ public class TaskService {
         return savedTask;
     }
 
-    public TaskEntity update(TaskEntity updatedTask) {
-        TaskEntity oldTask = taskRepository.findById(updatedTask.getId()).orElseThrow();
-        if (oldTask.getStatus() == TaskEntity.TaskStatus.COMPLETADO || oldTask.getStatus() == TaskEntity.TaskStatus.COMPLETADO_ATRASADO) {
+    public TaskEntity update(TaskUpdateDTO dto) {
+
+        TaskEntity task = taskRepository.findById(dto.getId())
+                .orElseThrow();
+
+        task.setTitle(dto.getTitle());
+        task.setDescription(dto.getDescription());
+        task.setDueDate(dto.getDueDate());
+
+        if (dto.getStatus() != null) {
+            task.setStatus(TaskEntity.TaskStatus.valueOf(dto.getStatus()));
+        }
+
+        SectorEntity sector = sectorRepository.findById(dto.getSectorId())
+                .orElseThrow();
+
+        task.setSector(sector);
+
+        task.setTaskLocation(taskMapper.toPoint(dto.getLocation()));
+
+        return taskRepository.save(task);
+    }
+
+    public void completeTask(Long id) {
+        TaskEntity task = taskRepository.findById(id).orElseThrow();
+
+        if (task.getStatus() == TaskEntity.TaskStatus.COMPLETADO || task.getStatus() == TaskEntity.TaskStatus.COMPLETADO_ATRASADO) {
             throw new RuntimeException("La tarea ya está completada");
         }
-        return taskRepository.save(updatedTask);
+
+        if (LocalDate.now().isAfter(task.getDueDate())) {
+            task.setStatus(TaskEntity.TaskStatus.COMPLETADO_ATRASADO);
+        } else {
+            task.setStatus(TaskEntity.TaskStatus.COMPLETADO);
+        }
+
+        taskRepository.save(task);
     }
 
     @Transactional
@@ -113,7 +151,9 @@ public class TaskService {
     }
 
     public List<TaskEntity> getAllTask() {
-        return taskRepository.findAll();
+        return taskRepository.findAll(
+                Sort.by(Sort.Direction.ASC, "id")
+        );
     }
 
     public TaskEntity getTask(Long id) {
@@ -121,7 +161,7 @@ public class TaskService {
     }
 
     public List<TaskEntity> getByUserId(Long userId) {
-        return taskRepository.findByUserId(userId);
+        return taskRepository.findByUserIdOrderByIdAsc(userId);
     }
 
     public List<TaskEntity> getBySector(Long id) {
@@ -129,15 +169,15 @@ public class TaskService {
     }
 
     public List<TaskEntity> getByStatus(TaskEntity.TaskStatus status) {
-        return taskRepository.findByStatus(status);
+        return taskRepository.findByStatus(status, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     public List<TaskEntity> getByKeyword(String keyword) {
-        return taskRepository.findByKeyword(keyword);
+        return taskRepository.findByKeyword(keyword, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     public List<TaskEntity> getByStatusAndKeyword(TaskEntity.TaskStatus status, String keyword) {
-        return taskRepository.findByStatusAndByKeyword(status, keyword);
+        return taskRepository.findByStatusAndByKeyword(status, keyword, Sort.by(Sort.Direction.ASC, "id"));
     }
 
     @Transactional
@@ -145,7 +185,7 @@ public class TaskService {
     @Scheduled(cron = "0 0 0 * * *")
     public void updateAllTasks() {
         LocalDate now = LocalDate.now();
-        List<TaskEntity> allTasks = taskRepository.findByStatus(TaskEntity.TaskStatus.VIGENTE);
+        List<TaskEntity> allTasks = getByStatus(TaskEntity.TaskStatus.VIGENTE);
         for (TaskEntity task : allTasks) {
             LocalDate limit = task.getDueDate();
             if (now.isAfter(limit)) {
@@ -154,7 +194,6 @@ public class TaskService {
             if ((limit.equals(now) || limit.equals(now.plusDays(1))) && !notificationService.notificationExistsForTask(task.getId(), "expiring")) {
                 notificationService.createExpiringNotification(task);
             }
-            update(task);
         }
     }
 
@@ -170,8 +209,12 @@ public class TaskService {
 
     public Map<Long, Long> getTasksCountBySectorForUser(Long userId) {
         List<TaskEntity> tasks = taskRepository.findByUserId(userId);
-        Map<Long, Long> sectorCount = new java.util.HashMap<>();
+        Map<Long, Long> sectorCount = new HashMap<>();
         for (TaskEntity task : tasks) {
+            if (task.getStatus() != TaskEntity.TaskStatus.COMPLETADO &&
+                    task.getStatus() != TaskEntity.TaskStatus.COMPLETADO_ATRASADO) {
+                continue;
+            }
             if (task.getSector() != null) {
                 Long sectorId = task.getSector().getId();
                 sectorCount.merge(sectorId, 1L, Long::sum);
@@ -200,6 +243,7 @@ public class TaskService {
         return nearestTask;
     }
 
+    /* Consultas */
     public ClosestTaskProjection getClosestPendingTask(Long userId) {
         return taskRepository.findClosestPendingTask(userId);
     }

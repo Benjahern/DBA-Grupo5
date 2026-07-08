@@ -1,8 +1,10 @@
 package com.example.Backend.Controller;
 
 import com.example.Backend.DTO.SectorCreateDTO;
+import com.example.Backend.DTO.SectorMapDTO;
 import com.example.Backend.DTO.SectorResponseDTO;
 import com.example.Backend.Entity.SectorEntity;
+import com.example.Backend.Mapper.SectorMapper;
 import com.example.Backend.Repository.SectorRepository;
 import com.example.Backend.Service.SectorService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,8 @@ public class SectorController {
     private SectorService sectorService;
     @Autowired
     private SectorRepository sectorRepository;
+    @Autowired
+    private SectorMapper sectorMapper;
 
     @GetMapping
     public ResponseEntity<List<SectorResponseDTO>> getAllSectors() {
@@ -54,7 +58,9 @@ public class SectorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SectorEntity> getSector(@PathVariable Long id) {
-        return ResponseEntity.ok(sectorService.getSectorById(id));
+    public ResponseEntity<SectorMapDTO> getSector(@PathVariable Long id) {
+        SectorEntity sector = sectorService.getSectorById(id);
+
+        return ResponseEntity.ok(sectorMapper.toMapDTO(sector));
     }
 }
