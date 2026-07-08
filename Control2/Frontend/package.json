@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@turf/turf": "^7.3.5",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
     "axios": "^1.16.1",
     "leaflet": "^1.9.4",

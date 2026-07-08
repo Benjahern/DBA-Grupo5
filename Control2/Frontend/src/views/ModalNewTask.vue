@@ -58,15 +58,31 @@
           </div>
 
           <l-map
+            ref = "mapRef"
             :zoom="mapZoom"
             :center="mapCenter"
+            @click="onMapClick"
             style="height: 220px; width: 100%; border-radius: 12px;"
           >
             <l-tile-layer
               :url="tileUrl"
               :attribution="attribution"
             />
-            <l-marker v-if="selectedLatLng" :lat-lng="selectedLatLng" />
+            <l-marker 
+              v-if="selectedLatLng" 
+              :lat-lng="selectedLatLng" 
+            />
+            <LMarker 
+              v-if="selectedPoint" 
+              :lat-lng="selectedPoint" 
+            />
+            <l-polygon
+              v-if="selectedSectorPolygon.length > 0"
+              :lat-lngs="[selectedSectorPolygon]"
+              :color="'#3b82f6'"
+              :fillColor="'#3b82f6'"
+              :fillOpacity="0.2"
+            />
           </l-map>
         </div>
 
@@ -86,9 +102,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import api from '../services/http-common.js';
-import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
+import * as turf from '@turf/turf';
+import L from 'leaflet';
+import { LMap, LMarker, LTileLayer, LPolygon } from '@vue-leaflet/vue-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useAlert } from '../components/Alerts/useAlert.js';
 
@@ -103,23 +121,89 @@ const form = ref({
 
 const sectors = ref([]);
 const loading = ref(false);
+const warning = ref('');
 const error = ref(null);
 const minDate = ref('');
 const { show } = useAlert();
 
 const defaultCenter = [-33.4489, -70.6693];
+const selectedPoint = ref(null);
+const mapCenter = ref(defaultCenter);
+const mapZoom = ref(11);
+const mapRef = ref(null);
 const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const attribution = '&copy; OpenStreetMap contributors';
 
-const selectedSector = computed(() =>
-  sectors.value.find((sector) => sector.id === Number(form.value.sectorId))
-);
+const selectedSector = computed(() => {
+  return sectors.value.find(s => s.id === form.value.sectorId);
+});
+
+const selectedSectorPolygon = computed(() => {
+  if (!selectedSector.value?.wktGeometry) {
+    return [];
+  }
+
+  const polygon = parsePolygonWKT(selectedSector.value.wktGeometry);
+
+  return polygon;
+});
 
 const selectedLatLng = computed(() => getSectorLatLng(selectedSector.value));
 
-const mapCenter = computed(() => selectedLatLng.value || defaultCenter);
+watch(
+  () => form.value.sectorId,
+  (newId) => {
+    const sector = sectors.value.find(s => s.id === newId);
 
-const mapZoom = computed(() => (selectedLatLng.value ? 14 : 11));
+    const latLng = getSectorLatLng(sector);
+
+    if (latLng) {
+      mapCenter.value = latLng;
+      mapZoom.value = 14;
+    }
+
+    if (selectedSectorPolygon.value.length) {
+      const bounds = L.latLngBounds(selectedSectorPolygon.value);
+
+      if (mapRef.value?.leafletObject) {
+        mapRef.value.leafletObject.fitBounds(bounds, {
+          padding: [20, 20]
+        });
+      }
+    }
+  }
+);
+
+watch(() => form.value.sectorId, () => {
+  selectedPoint.value = null
+})
+
+function onMapClick(e) {
+  if (!selectedSector.value) {
+    warning.value = 'Debes seleccionar un sector primero'
+    return
+  }
+
+  const latlng = e.latlng
+
+  // convertir punto a formato GeoJSON
+  const point = turf.point([latlng.lng, latlng.lat])
+
+  // convertir polygon a GeoJSON
+  const polygon = turf.polygon([selectedSectorPolygon.value.map(p => [p[1], p[0]])]);
+
+  const inside = turf.booleanPointInPolygon(point, polygon)
+
+  if (!inside) {
+    warning.value = 'El punto debe estar dentro del sector seleccionado'
+    return
+  }
+
+  warning.value = ''
+
+  // guardar punto válido
+  selectedPoint.value = latlng
+}
 
 const emitClose = () => {
   emit('close');
@@ -128,7 +212,9 @@ const emitClose = () => {
 const loadSectors = async () => {
   try {
     const response = await api.get('/api/sectors');
+
     sectors.value = response.data || [];
+    
   } catch (err) {
     console.error('Error loading sectors:', err);
     error.value = 'No se pudieron cargar los sectores.';
@@ -144,6 +230,15 @@ const handleSubmit = async () => {
     return;
   }
 
+  if (!selectedPoint.value) {
+    show({
+      message: 'Debes seleccionar una ubicación para la tarea.',
+      severity: 'warning',
+      autoHideMs: 4000
+    });
+    return;
+  }
+
   if (form.value.dueDate < minDate.value) {
     error.value = 'La fecha de vencimiento no puede ser anterior a hoy.';
     show({ message: 'La fecha de vencimiento no puede ser anterior a hoy.', severity: 'warning', autoHideMs: 4000 });
@@ -152,14 +247,22 @@ const handleSubmit = async () => {
 
   loading.value = true;
   try {
-    await api.post('/api/task', {
+    const payload = {
       title: form.value.title,
       description: form.value.description,
       dueDate: form.value.dueDate,
-      sector: { id: Number(form.value.sectorId) }
-    });
+      sectorId: Number(form.value.sectorId),
+      location: {
+        latitude: selectedPoint.value.lat,
+        longitude: selectedPoint.value.lng
+      }
+    };
+
+    const response = await api.post('/api/task', payload);
+
     show({ message: 'Tarea creada correctamente.', severity: 'success', autoHideMs: 3000 });
-    emit('created');
+    console.log("CREATE RESPONSE:", response.data);
+    emit('created', response.data.id);
     emitClose();
   } catch (err) {
     console.error('Error creating task:', err);
@@ -186,6 +289,37 @@ const getSectorLatLng = (sector) => {
   return null;
 };
 
+const parsePolygonWKT = (wkt) => {
+  if (!wkt) return [];
+
+  const cleaned = wkt
+    .replace(/^POLYGON\s*\(\(/, '')
+    .replace(/\)\)\s*$/, '')
+    .trim();
+
+  return cleaned
+    .split(',')
+    .map(point => {
+      const coords = point.trim().split(/\s+/);
+
+      if (coords.length < 2) {
+        console.warn('Coordenada inválida:', coords);
+        return null;
+      }
+
+      const longitude = parseFloat(coords[0]);
+      const latitude = parseFloat(coords[1]);
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        console.warn('NaN detectado:', coords);
+        return null;
+      }
+
+      return [latitude, longitude];
+    })
+    .filter(Boolean);
+};
+
 const formatLocalDate = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -194,6 +328,9 @@ const formatLocalDate = (date) => {
 };
 
 onMounted(() => {
+  if (mapRef.value?.leafletObject) {
+    mapRef.value.leafletObject.on('click', onMapClick);
+  }
   minDate.value = formatLocalDate(new Date());
   loadSectors();
 });
@@ -216,8 +353,9 @@ onMounted(() => {
   background: white;
   border-radius: 18px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
-  overflow: hidden;
+  overflow: auto;
   box-sizing: border-box;
+  max-height: 90vh;
 }
 
 .modal-header {

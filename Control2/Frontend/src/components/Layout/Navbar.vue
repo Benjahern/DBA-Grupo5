@@ -36,7 +36,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../../services/http-common'
 import { getUser, logout, restoreSession, subscribe } from '../../services/auth.js'
 import { getUnreadCount } from '../../services/notifications.js'
 import { useAlert } from '../Alerts/useAlert.js'

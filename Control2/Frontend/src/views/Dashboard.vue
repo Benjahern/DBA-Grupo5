@@ -13,7 +13,7 @@
     <div v-else>
 
       <div class="section">
-        <h2 class="section-title">📍 Tarea más cercana (Pendiente)</h2>
+        <h2 class="section-title">📍 Tarea más cercana (Pendiente) (2)</h2>
         <div v-if="nearestTask" class="nearest-card">
           <div class="nearest-info">
             <div class="nearest-row">
@@ -41,7 +41,7 @@
       </div>
 
       <div class="section">
-        <h2 class="section-title">🏆 Top Sectores (Tareas Completadas)</h2>
+        <h2 class="section-title">🏆 Top Sectores (Tareas Completadas) (3 y 7)</h2>
         <div class="stats-container">
           
           <div class="stat-wrapper">
@@ -78,7 +78,7 @@
       </div>
 
       <div class="section">
-        <h2 class="section-title">📊 Tareas Totales por sector</h2>
+        <h2 class="section-title">📊 Tareas completadas por sector (1)</h2>
         <div class="stats-container">
           <div class="stat-card" v-for="item in sectorStats" :key="item.sectorId">
             <div class="stat-icon">📍</div>
@@ -88,13 +88,13 @@
             </div>
           </div>
           <div v-if="sectorStats.length === 0" class="empty-state">
-            No tienes tareas asignadas
+            No tienes tareas completadas
           </div>
         </div>
       </div>
 
       <div class="section">
-        <h2 class="section-title">📍 Sectores con más tareas pendientes</h2>
+        <h2 class="section-title">📍 Sectores con más tareas pendientes (5)</h2>
         <div class="stats-container">
           <div class="stat-card" v-for="item in pendingSectors" :key="item.sectorId">
             <div class="stat-icon">⏳</div>
@@ -110,7 +110,7 @@
       </div>
 
       <div class="section">
-        <h2 class="section-title">📏 Promedio de distancia de tareas completadas</h2>
+        <h2 class="section-title">📏 Promedio de distancia de tareas completadas (4)</h2>
         <div class="stats-container">
           <div class="stat-card">
             <div class="stat-icon">📍</div>
@@ -126,7 +126,7 @@
       </div>
 
       <div class="section">
-        <h2 class="section-title">📏 Promedio de distancia global</h2>
+        <h2 class="section-title">📏 Promedio de distancia global (8)</h2>
         <div class="stats-container">
           <div class="stat-card">
             <div class="stat-icon">🌍</div>
@@ -235,21 +235,39 @@ const formatDistance = (meters) => {
 
 const statusLabel = (status) => {
   switch (status) {
-    case 'vigente': return 'Vigente'
-    case 'atrasado': return 'Atrasado'
-    case 'completado': return 'Completado'
-    case 'completadoAtrasado': return 'Completado atrasado'
-    default: return 'Pendiente'
+    case 'VIGENTE':
+      return 'Vigente'
+
+    case 'ATRASADO':
+      return 'Atrasado'
+
+    case 'COMPLETADO':
+      return 'Completado'
+
+    case 'COMPLETADO_ATRASADO':
+      return 'Completado atrasado'
+
+    default:
+      return status ?? 'Desconocido'
   }
 }
 
 const statusClass = (status) => {
   switch (status) {
-    case 'vigente': return 'status-vigente'
-    case 'atrasado': return 'status-atrasado'
-    case 'completado': return 'status-completado'
-    case 'completadoAtrasado': return 'status-completado-atrasado'
-    default: return 'status-pendiente'
+    case 'VIGENTE':
+      return 'status-vigente'
+
+    case 'ATRASADO':
+      return 'status-atrasado'
+
+    case 'COMPLETADO':
+      return 'status-completado'
+
+    case 'COMPLETADO_ATRASADO':
+      return 'status-completado-atrasado'
+
+    default:
+      return 'status-desconocido'
   }
 }
 
@@ -378,8 +396,7 @@ onMounted(() => {
   gap: 12px;
  }
 
- .status-vigente,
- .status-pendiente {
+ .status-vigente {
   background-color: #dbeafe;
   color: #1d4ed8;
   padding: 6px 12px;
@@ -414,6 +431,15 @@ onMounted(() => {
   font-size: 12px;
   font-weight: bold;
  }
+
+.status-desconocido {
+  background-color: #e5e7eb;
+  color: #374151;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: bold;
+}
 
  .loading,
  .error,

@@ -12,9 +12,9 @@
       <!-- BUTTONS -->
       <div class="button-container">
         <template v-if="isAdmin">
-          <button @click="openSeedModal" class="seed-btn">
-            Generar Carga Masiva
-          </button>
+          <!--<button @click="openSeedModal" class="seed-btn">-->
+            <!--Generar Carga Masiva-->
+          <!--</button>-->
 
           <button @click="cleanData" class="clean-btn">
             Limpiar Datos
@@ -67,11 +67,11 @@
 
       <!-- FILTERS -->
       <select v-model="selectedStatus" class="filter-select">
-        <option value="" selected>Estado</option>
-        <option value="vigente">Vigente</option>
-        <option value="completado">Completado</option>
-        <option value="atrasado">Atrasado</option>
-        <option value="completadoAtrasado">Completado Atrasado</option>
+        <option value="">Estado</option>
+        <option value="VIGENTE">Vigente</option>
+        <option value="COMPLETADO">Completado</option>
+        <option value="ATRASADO">Atrasado</option>
+        <option value="COMPLETADO_ATRASADO">Completado Atrasado</option>
       </select>
 
       <button @click="applyFilters" class="filter-button">
@@ -145,12 +145,12 @@
 
               <div class="detail-item">
                 <span class="detail-label">Sector</span>
-                <span>{{ selectedTask.sector?.name || 'Sin sector' }}</span>
+                <span>{{ selectedTask.sectorName || 'Sin sector' }}</span>
               </div>
 
               <div class="detail-item">
                 <span class="detail-label">Responsable</span>
-                <span>{{ selectedTask.user?.userName || 'Sin responsable' }}</span>
+                <span>{{ selectedTask.userName || 'Sin responsable' }}</span>
               </div>
 
               <div class="detail-item">
@@ -165,7 +165,7 @@
 
             <h3>Ubicación</h3>
 
-            <div v-if="selectedTask?.sector?.coordinates" class="map-container">
+            <div v-if="taskSector?.wktGeometry" class="map-container">
               <l-map
                 :zoom="mapZoom"
                 :center="mapCenter"
@@ -175,7 +175,17 @@
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution="&copy; OpenStreetMap contributors"
                 />
-                <l-marker v-if="markerPosition" :lat-lng="markerPosition" />
+                <l-polygon
+                  v-if="sectorPolygon.length > 0"
+                  :lat-lngs="[sectorPolygon]"
+                  :color="'#3b82f6'"
+                  :fillColor="'#3b82f6'"
+                  :fillOpacity="0.2"
+                />
+                <l-marker 
+                  v-if="markerPosition" 
+                  :lat-lng="markerPosition" 
+                />
               </l-map>
             </div>
             <div v-else class="map-placeholder">
@@ -185,14 +195,6 @@
           </div>
 
           <div class="details-actions">
-
-            <button
-              v-if="selectedTask.status !== 'completado' && selectedTask.status !== 'completadoAtrasado'"
-              class="complete-btn"
-              @click="completeTask"
-            >
-              Completar
-            </button>
 
             <button class="secondary-btn" @click="openEditModal">
               Editar
@@ -229,17 +231,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import api from '../services/http-common.js';
 import { getUser, subscribe } from '../services/auth.js';
 import ModalNewTask from './ModalNewTask.vue';
 import ModalEditTask from './ModalEditTask.vue';
 import ModalDeleteTask from './ModalDeleteTask.vue';
 import ModalSeedTasks from './ModalSeedTasks.vue';
-import { LMap, LMarker, LTileLayer } from '@vue-leaflet/vue-leaflet';
+import { LMap, LMarker, LTileLayer, LPolygon } from '@vue-leaflet/vue-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const tasks = ref([]);
+const taskSector = ref(null);
 const searchQuery = ref('');
 const selectedStatus = ref('');
 const selectedTaskId = ref(null);
@@ -249,33 +252,71 @@ const showModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
 const showSeedModal = ref(false);;
-const selectedTask = computed(() =>
-  tasks.value.find((task) => task.id === selectedTaskId.value)
-);
-
 const user = ref(getUser());
 let unsubscribe = null;
+
+const selectedTask = computed(() => {
+  if (!Array.isArray(tasks.value)) {
+    return null;
+  }
+
+  return tasks.value.find(
+    task => task.id === selectedTaskId.value
+  );
+});
 
 const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
 const markerPosition = computed(() => {
-  if (!selectedTask.value?.sector?.coordinates) return null;
-  const coords = selectedTask.value.sector.coordinates;
-  if (coords && coords.length >= 2) {
-    return [coords[1], coords[0]]; // [latitude, longitude]
+  if (!selectedTask.value?.location) {
+    return null;
   }
-  return null;
+ 
+  return [
+    selectedTask.value.location.latitude,
+    selectedTask.value.location.longitude
+  ];
+});
+
+const sectorPolygon = computed(() => {
+  if (!taskSector.value?.wktGeometry) {
+    return [];
+  }
+
+  return parsePolygonWKT(
+    taskSector.value.wktGeometry
+  );
 });
 
 const mapCenter = computed(() => markerPosition.value || [-33.4489, -70.6693]);
 const mapZoom = computed(() => markerPosition.value ? 14 : 11);
+
+watch(selectedTask, async (task) => {
+  
+  if (!task?.sectorId) {
+    taskSector.value = null;
+    return;
+  }
+
+  try {
+
+    const response = await api.get(`/api/sectors/${task.sectorId}`);
+    
+    taskSector.value = response.data;
+  } catch (err) {
+    console.error('Error loading sector:', err);
+    taskSector.value = null;
+  }
+});
 
 const fetchTasks = async () => {
   loading.value = true;
   error.value = null;
   try {
     const response = await api.get('/api/task');
+
     tasks.value = response.data || [];
+
     if (tasks.value.length > 0 && selectedTaskId.value == null) {
       selectedTaskId.value = tasks.value[0].id;
     }
@@ -360,12 +401,12 @@ const isTaskCompleted = (task) => {
   if (!task) {
     return false;
   }
-  return task.status === 'completado' || task.status === 'completadoAtrasado';
+  return task.status === 'COMPLETADO' || task.status === 'COMPLETADO_ATRASADO';
 };
 
 const resolveCompletionStatus = (task) => {
   if (!task?.dueDate) {
-    return 'completado';
+    return 'COMPLETADO';
   }
 
   let dueDateValue = task.dueDate;
@@ -379,10 +420,10 @@ const resolveCompletionStatus = (task) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (dueDateValue instanceof Date && !Number.isNaN(dueDateValue.getTime())) {
-    return dueDateValue < today ? 'completadoAtrasado' : 'completado';
+    return dueDateValue < today ? 'COMPLETADO_ATRASADO' : 'COMPLETADO';
   }
 
-  return 'completado';
+  return 'COMPLETADO';
 };
 
 const markTaskCompleted = async () => {
@@ -394,18 +435,12 @@ const markTaskCompleted = async () => {
   error.value = null;
 
   try {
-    const task = selectedTask.value;
-    await api.put('/api/task/update', {
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      dueDate: task.dueDate,
-      status: resolveCompletionStatus(task),
-      creationDate: task.creationDate,
-      sector: { id: task.sector?.id },
-      user: { id: task.user?.id }
-    });
+    await api.patch(
+      `/api/task/${selectedTask.value.id}/complete`
+    );
+
     await fetchTasks();
+
   } catch (err) {
     console.error('Error completing task:', err);
     error.value = 'No se pudo completar la tarea.';
@@ -414,8 +449,9 @@ const markTaskCompleted = async () => {
   }
 };
 
-const handleTaskCreated = () => {
-  fetchTasks();
+const handleTaskCreated = async (taskId) => {
+  await fetchTasks();
+  selectedTaskId.value = taskId;
 };
 
 const handleTaskUpdated = () => {
@@ -452,29 +488,6 @@ const cleanData = async () => {
     
     console.error("Error al limpiar:", errorMessage);
     alert("Error: " + errorMessage);
-  }
-};
-
-const completeTask = async () => {
-  if (!selectedTask.value) return;
-
-  const currentTask = selectedTask.value;
-  const newStatus = currentTask.status === 'atrasado' ? 'completadoAtrasado' : 'completado';
-
-  try {
-    await api.put('/api/task/update', {
-      id: currentTask.id,
-      title: currentTask.title,
-      description: currentTask.description,
-      dueDate: normalizeDateValue(currentTask.dueDate),
-      status: newStatus,
-      creationDate: currentTask.creationDate,
-      sector: { id: currentTask.sector?.id },
-      user: { id: currentTask.user?.id }
-    });
-    fetchTasks();
-  } catch (err) {
-    console.error('Error completing task:', err);
   }
 };
 
@@ -517,14 +530,18 @@ const formatDate = (value) => {
 
 const statusLabel = (status) => {
   switch (status) {
-    case 'vigente':
+    case 'VIGENTE':
       return 'Vigente';
-    case 'atrasado':
+
+    case 'ATRASADO':
       return 'Atrasado';
-    case 'completado':
+
+    case 'COMPLETADO':
       return 'Completado';
-    case 'completadoAtrasado':
+
+    case 'COMPLETADO_ATRASADO':
       return 'Completado atrasado';
+
     default:
       return 'Pendiente';
   }
@@ -532,17 +549,52 @@ const statusLabel = (status) => {
 
 const statusClass = (status) => {
   switch (status) {
-    case 'vigente':
+    case 'VIGENTE':
       return 'status-vigente';
-    case 'atrasado':
+
+    case 'ATRASADO':
       return 'status-atrasado';
-    case 'completado':
+
+    case 'COMPLETADO':
       return 'status-completado';
-    case 'completadoAtrasado':
+
+    case 'COMPLETADO_ATRASADO':
       return 'status-completado-atrasado';
+
     default:
       return 'status-pendiente';
   }
+};
+
+const parsePolygonWKT = (wkt) => {
+  if (!wkt) return [];
+
+  const cleaned = wkt
+    .replace(/^POLYGON\s*\(\(/, '')
+    .replace(/\)\)\s*$/, '')
+    .trim();
+
+  return cleaned
+    .split(',')
+    .map(point => {
+      const coords = point.trim().split(/\s+/);
+
+      if (coords.length < 2) {
+        console.warn('Coordenada inválida:', coords);
+        return null;
+      }
+
+      const longitude = parseFloat(coords[0]);
+      const latitude = parseFloat(coords[1]);
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        console.warn('NaN detectado:', coords);
+        return null;
+      }
+
+      return [latitude, longitude];
+    })
+    .filter(Boolean);
 };
 
 onMounted(async () => {
