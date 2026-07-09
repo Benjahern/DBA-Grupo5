@@ -27,9 +27,10 @@ CREATE TABLE "Storage" (
 CREATE TABLE "Region" (
   "Region_id" BIGSERIAL PRIMARY KEY,
   "Name"      VARCHAR(80) NOT NULL,
-  "Map_top"   REAL,
-  "Map_left"  REAL
+  "Geom"      geometry(Polygon, 4326)
 );
+
+CREATE INDEX IF NOT EXISTS region_geom_idx ON "Region" USING GIST ("Geom");
 
 CREATE TABLE "Role" (
   "Role_id" BIGSERIAL PRIMARY KEY,
@@ -140,5 +141,7 @@ INSERT INTO "Ram" ("Quantity", "Cost_ph") VALUES
 INSERT INTO "Storage" ("Quantity", "Cost_ph") VALUES
 (10, 0.01), (20, 0.02), (50, 0.05), (100, 0.10);
 
-INSERT INTO "Region" ("Name", "Map_top", "Map_left") VALUES
-('us-east', 33.0, 22.0), ('us-west', 34.0, 13.0), ('europe', 28.0, 50.0);
+INSERT INTO "Region" ("Name", "Geom") VALUES
+('us-east', ST_GeomFromText('POLYGON((-80 25, -80 45, -67 45, -67 25, -80 25))', 4326)),
+('us-west', ST_GeomFromText('POLYGON((-125 32, -125 49, -103 49, -103 32, -125 32))', 4326)),
+('europe',  ST_GeomFromText('POLYGON((-10 36, -10 60, 40 60, 40 36, -10 36))', 4326));

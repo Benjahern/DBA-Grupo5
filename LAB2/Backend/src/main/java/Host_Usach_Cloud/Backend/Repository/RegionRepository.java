@@ -1,8 +1,12 @@
 package Host_Usach_Cloud.Backend.Repository;
 
 import Host_Usach_Cloud.Backend.Entity.Region;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -21,21 +25,16 @@ public class RegionRepository {
     }
 
     public Region save(Region region) {
-        String sql = "INSERT INTO \"Region\" (\"Name\", \"Map_top\", \"Map_left\") VALUES (?, ?, ?)";
+        String sql = "INSERT INTO \"Region\" (\"Name\", \"Geom\") VALUES (?, ST_GeomFromText(?, 4326))";
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, region.getName());
-            if (region.getMap_top() != null) {
-                ps.setDouble(2, region.getMap_top());
+            if (region.getGeom() != null) {
+                ps.setString(2, region.getGeom().toText());
             } else {
-                ps.setNull(2, java.sql.Types.REAL);
-            }
-            if (region.getMap_left() != null) {
-                ps.setDouble(3, region.getMap_left());
-            } else {
-                ps.setNull(3, java.sql.Types.REAL);
+                ps.setNull(2, java.sql.Types.OTHER);
             }
             return ps;
         }, keyHolder);
@@ -46,46 +45,51 @@ public class RegionRepository {
                 region.setRegion_id(((Number) key).longValue());
             }
         }
-
         return region;
     }
 
     public Optional<Region> findById(Long id) {
-        String sql = "SELECT * FROM \"Region\" WHERE \"Region_id\" = ?";
-
+        String sql = "SELECT \"Region_id\", \"Name\", ST_AsText(\"Geom\") AS geom_text "
+                   + "FROM \"Region\" WHERE \"Region_id\" = ?";
         try {
-            Region region = jdbcTemplate.queryForObject(sql, (rs, rowNum) ->
-                            Region.builder()
-                                    .Region_id(rs.getLong("Region_id"))
-                                    .Name(rs.getString("Name"))
-                                    .Map_top(rs.getObject("map_top") != null ? rs.getDouble("map_top") : null)
-                                    .Map_left(rs.getObject("map_left") != null ? rs.getDouble("map_left") : null)
-                                    .build()
-                    , id);
-            return Optional.ofNullable(region);
+            return Optional.ofNullable(jdbcTemplate.queryForObject(sql, mapRow(), id));
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
     }
 
     public List<Region> findAll() {
-        String sql = "SELECT * FROM \"Region\"";
-        return jdbcTemplate.query(sql, (rs, rowNum) ->
-                        Region.builder()
-                                    .Region_id(rs.getLong("Region_id"))
-                                    .Name(rs.getString("Name"))
-                                    .Map_top(rs.getObject("map_top") != null ? rs.getDouble("map_top") : null)
-                                    .Map_left(rs.getObject("map_left") != null ? rs.getDouble("map_left") : null)
-                                    .build());
+        String sql = "SELECT \"Region_id\", \"Name\", ST_AsText(\"Geom\") AS geom_text FROM \"Region\"";
+        return jdbcTemplate.query(sql, mapRow());
     }
 
     public boolean update(Region region) {
-        String sql = "UPDATE \"Region\" SET \"Name\" = ?, \"Map_top\" = ?, \"Map_left\" = ? WHERE \"Region_id\" = ?";
-        return jdbcTemplate.update(sql, region.getName(), region.getMap_top(), region.getMap_left(), region.getRegion_id()) > 0;
+        String sql = "UPDATE \"Region\" SET \"Name\" = ?, \"Geom\" = ST_GeomFromText(?, 4326) "
+                   + "WHERE \"Region_id\" = ?";
+        Polygon g = region.getGeom();
+        return jdbcTemplate.update(sql, region.getName(),
+                g != null ? g.toText() : null, region.getRegion_id()) > 0;
     }
 
     public boolean deleteById(Long id) {
         String sql = "DELETE FROM \"Region\" WHERE \"Region_id\" = ?";
         return jdbcTemplate.update(sql, id) > 0;
+    }
+
+    private RowMapper<Region> mapRow() {
+        return (rs, rowNum) -> {
+            Region.RegionBuilder b = Region.builder()
+                    .Region_id(rs.getLong("Region_id"))
+                    .Name(rs.getString("Name"));
+            String wkt = rs.getString("geom_text");
+            if (wkt != null) {
+                try {
+                    b.Geom((Polygon) new WKTReader().read(wkt));
+                } catch (ParseException e) {
+                    throw new RuntimeException("Invalid WKT from DB: " + wkt, e);
+                }
+            }
+            return b.build();
+        };
     }
 }

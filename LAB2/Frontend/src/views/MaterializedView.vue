@@ -1,15 +1,7 @@
 <template>
   <div class="regions-page">
-    <div class="map-container">
-      <div
-        v-for="region in resources"
-        :key="region.region_name"
-        class="region-dot"
-        :style="getRegionStyle(region)"
-      >
-        <div class="pulse"></div>
-      </div>
-
+    <div class="map-section">
+      <div ref="mapEl" class="leaflet-container-wrapper"></div>
       <div v-if="!isLoading && resources.length === 0" class="empty-overlay">
         <p>No hay regiones con instancias activas</p>
       </div>
@@ -51,11 +43,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import api from '@/services/http-common';
 
 const resources = ref([]);
 const isLoading = ref(false);
+const mapEl = ref(null);
+let map = null;
 
 const totalRam = computed(() => resources.value.reduce((sum, r) => sum + (r.total_ram || 0), 0));
 const totalCpu = computed(() => resources.value.reduce((sum, r) => sum + (r.total_cpu || 0), 0));
@@ -65,7 +61,30 @@ const fetchResources = async () => {
   isLoading.value = true;
   try {
     const response = await api.get('/api/admin/reports/global-resources');
-    resources.value = response.data;
+    resources.value = response.data || [];
+
+    if (!map) return;
+
+    response.data.forEach(row => {
+      if (!row.region_geometry) return;
+      const geom = typeof row.region_geometry === 'string'
+        ? JSON.parse(row.region_geometry)
+        : row.region_geometry;
+
+      const layer = L.geoJSON(geom, {
+        style: {
+          color: '#2563eb',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.4,
+          weight: 2
+        }
+      }).addTo(map);
+
+      layer.bindPopup(
+        `<strong>${row.region_name}</strong><br>` +
+        `RAM: ${row.total_ram} GB · CPU: ${row.total_cpu} · Storage: ${row.total_storage} GB`
+      );
+    });
   } catch (error) {
     console.error('Error al cargar la Vista Materializada:', error);
   } finally {
@@ -73,18 +92,19 @@ const fetchResources = async () => {
   }
 };
 
-const getRegionStyle = (region) => {
-  if (region.map_top == null || region.map_left == null) {
-    return { display: 'none' };
-  }
-  return {
-    top: region.map_top + '%',
-    left: region.map_left + '%',
-  };
-};
+onMounted(async () => {
+  map = L.map(mapEl.value).setView([-33.5984, -70.5758], 3);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  await fetchResources();
+});
 
-onMounted(() => {
-  fetchResources();
+onBeforeUnmount(() => {
+  if (map) {
+    map.remove();
+    map = null;
+  }
 });
 </script>
 
@@ -93,46 +113,19 @@ onMounted(() => {
   padding: 20px;
 }
 
-.map-container {
+.map-section {
   position: relative;
   width: 100%;
   max-width: 1357px;
   margin: 0 auto;
-  aspect-ratio: 1357 / 628;
-  background-image: url('/map.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
+}
+
+.leaflet-container-wrapper {
+  width: 100%;
+  height: 500px;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-.region-dot {
-  position: absolute;
-  width: 15px;
-  height: 15px;
-  background-color: #38bdf8;
-  border: 2px solid white;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
-}
-
-.pulse {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(56, 189, 248, 0.4);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  animation: pulse-animation 2s infinite;
-}
-
-@keyframes pulse-animation {
-  0% { width: 15px; height: 15px; opacity: 1; }
-  100% { width: 50px; height: 50px; opacity: 0; }
+  overflow: hidden;
 }
 
 .empty-overlay {
@@ -143,6 +136,7 @@ onMounted(() => {
   justify-content: center;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 8px;
+  pointer-events: none;
 }
 
 .empty-overlay p {

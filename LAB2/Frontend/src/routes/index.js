@@ -10,7 +10,7 @@ import AdminCosts from '../views/AdminCosts.vue';
 import { getUser } from '../services/auth.js';
 import Cost from '../views/IntanceTicket.vue';
 import Regions from '../views/MaterializedView.vue';
-import RegionsManagement from "../views/RegionsCrud.vue";
+import RegionsManagement from "../views/RegionCreate.vue";
 
 const routes = [
   { path: '/', name: 'landing', component: LandingPage, meta: { title: 'Host Cloud Usach' } },
