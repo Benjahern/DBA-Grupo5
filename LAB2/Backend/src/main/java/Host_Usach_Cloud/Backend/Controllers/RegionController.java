@@ -1,6 +1,7 @@
 package Host_Usach_Cloud.Backend.Controllers;
 
 import Host_Usach_Cloud.Backend.Entity.Region;
+import Host_Usach_Cloud.Backend.Services.DTO.PingResult;
 import Host_Usach_Cloud.Backend.Services.RegionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,5 +42,17 @@ public class RegionController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         regionService.deleteRegion(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/ping")
+    public ResponseEntity<List<PingResult>> ping(
+            @RequestParam Double lat,
+            @RequestParam Double lng) {
+        if (lat == null || lng == null
+                || lat < -90 || lat > 90
+                || lng < -180 || lng > 180) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(regionService.getLatencyToRegions(lat, lng));
     }
 }

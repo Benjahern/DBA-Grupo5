@@ -1,6 +1,7 @@
 package Host_Usach_Cloud.Backend.Repository;
 
 import Host_Usach_Cloud.Backend.Entity.Region;
+import Host_Usach_Cloud.Backend.Services.DTO.PingResult;
 import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
@@ -74,6 +75,17 @@ public class RegionRepository {
     public boolean deleteById(Long id) {
         String sql = "DELETE FROM \"Region\" WHERE \"Region_id\" = ?";
         return jdbcTemplate.update(sql, id) > 0;
+    }
+
+    public List<PingResult> getLatencyToRegions(double lat, double lng) {
+        String sql = "SELECT region_id, region_name, distance_m, latency_rtt_ms " +
+                     "FROM fn_latencia_a_regiones(?, ?)";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> PingResult.builder()
+                .region_id(rs.getLong("region_id"))
+                .region_name(rs.getString("region_name"))
+                .distance_m(rs.getDouble("distance_m"))
+                .latency_rtt_ms(rs.getDouble("latency_rtt_ms"))
+                .build(), lat, lng);
     }
 
     private RowMapper<Region> mapRow() {

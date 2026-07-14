@@ -2,6 +2,7 @@ package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.Region;
 import Host_Usach_Cloud.Backend.Repository.RegionRepository;
+import Host_Usach_Cloud.Backend.Services.DTO.PingResult;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -41,5 +42,9 @@ public class RegionService {
         if (!deleted) {
             throw new IllegalArgumentException("El Id de Region no existe");
         }
+    }
+
+    public List<PingResult> getLatencyToRegions(double lat, double lng) {
+        return regionRepository.getLatencyToRegions(lat, lng);
     }
 }

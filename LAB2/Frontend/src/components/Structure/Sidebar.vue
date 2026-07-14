@@ -75,6 +75,20 @@
           </ul>
         </transition>
       </div>
+
+      <!-- Ping (todos los autenticados) -->
+      <div class="nav-group" :class="{ 'is-open': openGroups.ping && !isCollapsed }">
+        <div class="nav-title" @click="toggleGroup('ping')">
+          <span class="icon">📡</span>
+          <span v-if="!isCollapsed" class="text">Ping</span>
+          <span v-if="!isCollapsed" class="arrow">{{ openGroups.ping ? '▼' : '▶' }}</span>
+        </div>
+        <transition name="expand">
+          <div v-if="openGroups.ping && !isCollapsed" class="ping-panel">
+            <PingSection />
+          </div>
+        </transition>
+      </div>
     </nav>
 
     <div class="user-footer">
@@ -93,6 +107,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getUser, subscribe } from '../../services/auth.js';
+import PingSection from '../Ping/PingSection.vue';
 
 const isUser = computed(() => roles.value.includes("user"));
 
@@ -144,7 +159,8 @@ const openGroups = reactive({
   admin: false,
   servers: false,
   costs: false,
-  regions: false
+  regions: false,
+  ping: false
 });
 
 const isVisible = computed(() => {
@@ -158,10 +174,11 @@ const toggleSidebar = () => {
   if (isCollapsed.value) {
     openGroups.infra = false;
     openGroups.admin = false;
+    openGroups.ping = false;
   }
 };
 
-const toggleGroup = (group: 'infra' | 'admin') => {
+const toggleGroup = (group: 'infra' | 'admin' | 'servers' | 'costs' | 'regions' | 'ping') => {
   if (isCollapsed.value) {
     isCollapsed.value = false; // Expandir sidebar automáticamente si estaba cerrada
   }
@@ -358,4 +375,11 @@ const goToRegionsManagement = () => {
 }
 
 .capitalize { text-transform: capitalize; }
+
+.ping-panel {
+  background-color: #1a252f;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  max-height: 70vh;
+  overflow-y: auto;
+}
 </style>

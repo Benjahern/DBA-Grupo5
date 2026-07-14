@@ -21,6 +21,7 @@ services:
       - ./Backend/src/main/resources/db/procedures2.sql:/docker-entrypoint-initdb.d/procedures2.sql:ro
       - ./Backend/src/main/resources/db/materialized_view.sql:/docker-entrypoint-initdb.d/materialized_view.sql:ro
       - ./Backend/src/main/resources/db/migration_password.sql:/docker-entrypoint-initdb.d/migration_password.sql:ro
+      - ./Backend/src/main/resources/db/spatial_functions.sql:/docker-entrypoint-initdb.d/spatial_functions.sql:ro
 
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
