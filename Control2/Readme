@@ -1,0 +1,711 @@
+# Sistema de Tareas Geoespaciales
+
+Aplicación para gestión de tareas asociadas a **sectores geográficos**
+(polígonos en el mapa). Permite registrar usuarios con ubicación, dibujar y
+editar sectores, crear tareas con fecha de vencimiento, marcarlas como
+completadas, visualizar un dashboard con métricas espaciales y recibir
+notificaciones por vencimiento.
+
+El backend almacena geometría nativa en **PostgreSQL/PostGIS** y ejecuta
+consultas geoespaciales (`ST_Distance`, `ST_DWithin`, `ST_Centroid` con
+casteo a `geography` para distancias métricas sobre WGS-84). El frontend
+utiliza **Vue 3 + Vite + Leaflet/Leaflet.draw** para dibujar polígonos
+directamente en el mapa y visualizar sectores y tareas.
+
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|------|-----------|
+| Frontend | Vue 3 (Composition API) + Vite + Vue Router |
+| Mapas | Leaflet 1.9 + Leaflet.draw 1.0 + @vue-leaflet/vue-leaflet |
+| HTTP | Axios (con `withCredentials` para cookie de auth) |
+| Backend | Java 21 + Spring Boot 4.0.6 + Spring Security |
+| ORM | Spring Data JPA + Hibernate Spatial 7.2 |
+| Auth | JWT (jjwt 0.12) en cookie HttpOnly `auth_token` |
+| Base de datos | PostgreSQL 16 con PostGIS 3.4 |
+| Build | Gradle (backend) / npm (frontend) |
+| Despliegue | Docker + docker compose (multi-servicio) |
+
+---
+
+## Requisitos previos
+
+- **Docker + Docker Compose** (recomendado) — sólo necesitas Docker Desktop o
+  Docker Engine con el plugin `compose`.
+- **Node.js ≥ 22.12** (sólo si vas a ejecutar el frontend sin Docker).
+- **Java 21 + Gradle** (sólo si vas a ejecutar el backend sin Docker).
+
+---
+
+## Configuración inicial
+
+Toda la configuración de runtime se centraliza en un único archivo `.env`
+en la raíz del proyecto. **No existe un `.env` por servicio**:
+`docker-compose.yml` lee las variables de la raíz y las inyecta a backend
+y frontend.
+
+### 1. Crear el archivo `.env`
+
+Copia el archivo de ejemplo y ajusta los valores:
+
+```bash
+cp .env.example .env
+```
+
+Variables relevantes del `.env`:
+
+```bash
+# --- Base de datos (PostGIS) ---
+POSTGRES_DB=control2          # nombre de la BD
+POSTGRES_USER=admin           # usuario postgres
+POSTGRES_PASSWORD=changeme    # contraseña
+POSTGRES_PORT=5432            # puerto en tu host (mapea al 5432 del contenedor)
+
+# --- Backend ---
+BACKEND_PORT=8080             # puerto en tu host (mapea al 8080 del contenedor)
+JWT_SECRET=<mínimo 64 caracteres>; HS256 requiere ≥ 256 bits
+JWT_EXPIRATION=86400000       # milisegundos (24 h por defecto)
+
+# --- Frontend ---
+FRONTEND_PORT=5173            # puerto en tu host
+VITE_API_URL=http://localhost:8080
+
+# --- CORS ---
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
+CORS_ALLOWED_HEADERS=Authorization,Content-Type
+CORS_ALLOW_CREDENTIALS=true
+```
+
+> **Importante:** `JWT_SECRET` debe tener **al menos 64 caracteres** (256 bits)
+> para que HS256 funcione. Si modificas el secreto, todos los tokens ya
+> emitidos quedan inválidos y los usuarios deberán volver a iniciar sesión.
+
+### 2. Verificar el archivo `.gitignore`
+
+Asegúrate de que `.env` esté excluido del control de versiones (el repositorio
+ya trae esta regla en `.gitignore`).
+
+---
+
+## Despliegue con Docker (recomendado)
+
+`docker-compose.yml` levanta **tres servicios** en una sola red interna:
+
+- **`postgres`** — imagen `postgis/postgis:16-3.4` con volumen persistente
+  `postgres_data`.
+- **`backend`** — build multi-stage de Spring Boot (Gradle → JRE Alpine).
+- **`frontend`** — Vite dev server con hot-reload (volumen montado sobre
+  `./Frontend`).
+
+### Pasos
+
+1. Asegúrate de haber creado el `.env` (ver sección anterior).
+2. Construir imágenes y levantar:
+
+```bash
+docker compose up -d --build
+```
+
+3. Ver logs:
+
+```bash
+docker compose logs -f              # todos
+docker compose logs -f backend     # sólo un servicio
+docker compose logs -f postgres
+```
+
+4. Acceder:
+   - Frontend → http://localhost:5173
+   - Backend  → http://localhost:8080 (puedes probar
+     `GET http://localhost:8080/api/auth/me` con la cookie de sesión)
+   - Postgres → en `localhost:<POSTGRES_PORT>` (por defecto 5432)
+
+5. Detener:
+
+```bash
+docker compose down            # detiene contenedores
+docker compose down -v         # además borra el volumen postgres_data
+```
+
+### Healthcheck y orden de inicio
+
+`postgres` declara un `healthcheck` con `pg_isready` y `backend` espera con
+`depends_on: condition: service_healthy`, de modo que Spring no arranca antes
+de que la BD acepte conexiones. Esto evita condiciones de carrera durante
+el primer arranque.
+
+### Hot-reload del frontend
+
+El servicio `frontend` monta `./Frontend` como volumen dentro de `/app`, así
+los cambios en código se reflejan sin rebuild. `vite.config.js` incluye:
+
+```js
+server: {
+  host: true,
+  watch: { usePolling: true }
+}
+```
+
+`usePolling` es **necesario** para que Vite detecte cambios dentro de
+contenedores (los eventos `inotify` no siempre atraviesan las capas del FS
+overlay). El `Dockerfile` además pasa `--host 0.0.0.0` para que Vite acepte
+conexiones desde fuera del contenedor.
+
+---
+
+## Despliegue manual (sin Docker)
+
+Útil para debugging fino o cuando Docker no está disponible.
+
+### Base de datos
+
+```bash
+docker run -d --name postgres-postgis \
+  -p 5432:5432 \
+  -e POSTGRES_DB=control2 \
+  -e POSTGRES_USER=admin \
+  -e POSTGRES_PASSWORD=changeme \
+  postgis/postgis:16-3.4
+```
+
+### Backend (Spring Boot)
+
+```bash
+cd Backend
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/control2
+export SPRING_DATASOURCE_USERNAME=admin
+export SPRING_DATASOURCE_PASSWORD=changeme
+export JWT_SECRET='<cadena de al menos 64 caracteres>'
+export JWT_EXPIRATION=86400000
+export CORS_ALLOWED_ORIGINS=http://localhost:5173
+./gradlew bootRun
+```
+
+### Frontend (Vite)
+
+```bash
+cd Frontend
+npm install
+export VITE_API_URL=http://localhost:8080
+npm run dev -- --host 0.0.0.0
+```
+
+> Vite necesita `--host 0.0.0.0` para que el servidor sea accesible desde
+> fuera de `localhost`.
+
+---
+
+## Cómo se crea el usuario administrador
+
+La aplicación crea automáticamente un usuario `admin` la **primera vez**
+que se inicia el backend. El mecanismo es el archivo `data.sql`:
+
+```sql
+INSERT INTO users (username, email, pass, geo_location)
+SELECT 'admin', 'admin@gmail.com',
+       '$2a$10$MutQnXK4JTYbRuzkjaWj5uqaAVpajUb9DPe/SZvX6Z4bzO0.mfNTW',
+       ST_SetSRID(ST_MakePoint(-70.6845, -33.4489), 4326)
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@gmail.com');
+
+INSERT INTO user_roles (user_entity_id, roles)
+SELECT u.id, 'ADMIN'
+FROM users u
+WHERE u.email = 'admin@gmail.com'
+  AND NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_entity_id = u.id AND r.roles = 'ADMIN');
+```
+
+- **Usuario:** `admin`
+- **Contraseña:** `admin` (hash BCrypt strength 10 precomputado)
+- **Rol:** `ADMIN`
+- **Ubicación:** Santiago de Chile (`-70.6845, -33.4489`)
+
+Este usuario puede acceder a los endpoints `/api/task/seed`,
+`/api/task/seed/clean` y al panel **Sectores** del sidebar (visible sólo
+cuando `user.role === 'ADMIN'`).
+
+---
+
+## Arquitectura de la aplicación
+
+```
+┌─────────────────────┐       HTTP/JSON       ┌─────────────────────┐
+│  Frontend (Vue 3)   │  ◀──────────────────▶ │  Backend (Spring    │
+│  - Vite dev server  │   cookie auth_token   │   Boot 4)           │
+│  - Leaflet/         │                       │  - JWT filter       │
+│    leaflet-draw     │                       │  - JPA + Hibernate  │
+│  - Axios (cookie)   │                       │    Spatial          │
+└─────────────────────┘                       └──────────┬──────────┘
+                                                         │ JDBC
+                                                         ▼
+                                              ┌─────────────────────┐
+                                              │  PostgreSQL 16 +    │
+                                              │  PostGIS 3.4        │
+                                              │  - geometry(Point)  │
+                                              │  - geometry(Polygon)│
+                                              └─────────────────────┘
+```
+
+
+### Patrón por capas (backend)
+
+```
+Controller (HTTP)  →  Service (reglas de negocio)  →  Repository (JPA/native)  →  Entity (PostgreSQL)
+        │                                                                       ▲
+        └── DTOs para validación/serialización ──────────────────────────────────┘
+```
+
+- **Controllers** finos: validan entrada, delegan al service y formatean
+  respuesta. Por ejemplo `TaskController` calcula si el usuario es ADMIN y
+  filtra el resultado en memoria cuando corresponde.
+- **Services** contienen las reglas de negocio: validaciones (`dueDate >= hoy`,
+  `dueDate` obligatorio), mantenimiento de la lista embebida `TaskData` en
+  cada `SectorEntity`, scheduler diario, etc.
+- **Repositories** son interfaces `JpaRepository`. Las consultas que
+  requieren PostGIS están implementadas como `@Query` con `nativeQuery=true`.
+- **Entities** declaran la geometría con `columnDefinition =
+  "geometry(Point, 4326)"` / `"geometry(Polygon, 4326)"`. Hibernate Spatial
+  se encarga de serializar/deserializar con JTS.
+
+### Patrón por capas (frontend)
+
+```
+View (Vue SFC)  →  Service JS (axios)  →  HTTP
+       │
+       └── Componentes reusables (Sidebar, Navbar, modales, LocationPicker)
+```
+
+- **Vistas** (`views/`) son páginas: `Login`, `Dashboard`, `Tasks`,
+  `Notifications`, `SectorCreate` y los modales de tarea/sector.
+- **Componentes** reutilizables viven en `components/` y se inyectan desde
+  las vistas con `import`.
+- **Servicios** (`services/`) encapsulan las llamadas HTTP y exponen
+  funciones simples (`getTasks`, `login`, etc).
+- **Estado global** mínimo: `auth.js` mantiene un `currentUser` en memoria y
+  notifica a suscriptores (Sidebar, Navbar) cuando cambia.
+
+---
+
+## Modelo de datos
+
+### Tabla `users`
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | bigserial | PK |
+| `username` | varchar | único |
+| `email` | varchar | único |
+| `pass` | varchar | BCrypt (anotado `@JsonIgnore`) |
+| `geo_location` | `geometry(Point, 4326)` | ubicación del usuario |
+| (tabla `user_roles`) | — | `Set<String>` mapeado con `@ElementCollection` |
+
+Los roles se almacenan en `user_roles` (`user_entity_id`, `roles`) por la
+anotación `@CollectionTable`. Valores típicos: `CLIENTE` (auto-asignado en el
+registro público) y `ADMIN` (asignado en `data.sql`).
+
+### Tabla `sectors`
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | bigserial | PK |
+| `name` | varchar | |
+| `geo_location` | `geometry(Polygon, 4326)` | polígono en SRID 4326 |
+| `taskList` (tabla `sector_tasks`) | embebido | `List<TaskData>` con resumen por tarea |
+
+El anillo exterior se almacena como `Polygon` PostGIS; al crearlo desde el
+backend se cierra repitiendo el primer punto al final (JTS exige anillo
+cerrado). `SectorResponseDTO` envía geometría en formato **WKT** (`POLYGON((...))`)
+más centroide, y el frontend lo parsea con un helper propio para dibujar el
+polígono en Leaflet.
+
+### Tabla `tasks`
+
+| Columna | Tipo | Notas |
+|---------|------|-------|
+| `id` | bigserial | PK |
+| `title` | varchar | |
+| `description` | varchar | |
+| `creation_date` | date | se asigna hoy si es nula |
+| `due_date` | date | validado: no anterior a hoy |
+| `status` | varchar | `vigente` / `atrasado` / `completado` / `completadoAtrasado` |
+| `user_id` | FK → users | autor de la tarea |
+| `sector_id` | FK → sectors | sector donde se ejecuta |
+
+### Tabla `notifications`
+
+`title`, `message`, `type` (`expiring`, `overdue`, `completed`), `read`
+(bool), `created_at` (timestamp), `user_id`, `task_id` (nullable).
+
+---
+
+## API REST — endpoints
+
+Todos los endpoints (excepto `/api/auth/**`) requieren una sesión válida,
+identificada por la cookie `auth_token` (HttpOnly, SameSite=Lax) o por la
+cabecera `Authorization: Bearer <token>`.
+
+### Auth (`/api/auth`) — público excepto `/me`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/auth/register` | Crea usuario (rol `CLIENTE`) con coordenadas. |
+| POST | `/api/auth/login` | Devuelve token y setea cookie. |
+| GET  | `/api/auth/me` | Usuario actual (requiere cookie/token). |
+| POST | `/api/auth/logout` | Limpia cookie. |
+
+### Usuarios (`/api/users`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/users` | Lista todos los usuarios. |
+| GET | `/api/users/{id}` | Usuario por ID. |
+
+### Sectores (`/api/sectors`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/sectors` | Lista sectores con geometría WKT y centroide. |
+| GET | `/api/sectors/{id}` | Sector por ID. |
+| POST | `/api/sectors` | Crea sector desde `SectorCreateDTO` (mín. 3 coords). |
+| PUT | `/api/sectors/{id}` | Actualiza nombre y/o polígono. |
+| DELETE | `/api/sectors/{id}` | Borra (rechaza si tiene tareas asociadas). |
+
+### Tareas (`/api/task`)
+
+CRUD básico:
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/task` | Lista tareas (todas para ADMIN, propias para CLIENTE). |
+| GET | `/api/task/{id}` | Tarea por ID. |
+| POST | `/api/task` | Crea tarea; valida `dueDate >= hoy`. |
+| PUT | `/api/task/update` | Actualiza tarea. |
+| DELETE | `/api/task/{id}` | Borra tarea. |
+
+Filtrado cruzado:
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/task/sector/{sectorId}` | Por sector. |
+| GET | `/api/task/status?status=...` | Por estado. |
+| GET | `/api/task/keyword?keyword=...` | Por texto en título/descripción. |
+| GET | `/api/task/statusAndKeyword?...` | Combinado. |
+
+Consultas espaciales / dashboard:
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/task/expiring` | Tareas que vencen hoy o mañana. |
+| GET | `/api/task/my/sectors-count` | Cantidad de tareas propias por sector. |
+| GET | `/api/task/my/nearest?lat&lon` | Tarea pendiente más cercana (Haversine en Java). |
+| GET | `/api/task/my/closest-task` | Tarea pendiente más cercana vía PostGIS (`ST_Distance`). |
+| GET | `/api/task/my/top-sector-2km` | Sector con más tareas completadas en 2 km. |
+| GET | `/api/task/my/top-sector-5km` | Idem en 5 km. |
+| GET | `/api/task/my/average-distance` | Promedio de distancia a tareas completadas propias. |
+| GET | `/api/task/my/pending/by-sector` | Sectores con más tareas pendientes propias. |
+| GET | `/api/task/my/average-distance-global` | Promedio global de distancias. |
+| GET | `/api/task/all-users/completed-by-sector` | **sólo ADMIN**: completadas por usuario y sector. |
+| POST | `/api/task/seed` | **sólo ADMIN**: genera tareas masivas. |
+| DELETE | `/api/task/seed/clean` | **sólo ADMIN**: borra todas las tareas. |
+
+### Notificaciones (`/api/notifications`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/notifications` | Notificaciones del usuario actual. |
+| GET | `/api/notifications/unread` | `{ count: N }` para badge. |
+| PUT | `/api/notifications/{id}/read` | Marca una como leída. |
+| PUT | `/api/notifications/read-all` | Marca todas como leídas. |
+
+---
+
+## Consultas geoespaciales (PostGIS)
+
+Las distancias se calculan casteando a `geography` (no `geometry`),
+operando sobre el elipsoide WGS-84 y devolviendo **metros** en lugar de
+grados. Ejemplo representativo (`findClosestPendingTask`):
+
+```sql
+SELECT t.id AS taskId,
+       t.title AS title,
+       t.description AS description,
+       t.due_date AS dueDate,
+       t.status AS status,
+       s.name AS sectorName,
+       ST_Distance(
+         ST_Centroid(s.geo_location)::geography,
+         u.geo_location::geography
+       ) AS distanceMetres
+FROM tasks t
+JOIN sectors s ON t.sector_id = s.id
+JOIN users  u ON u.id = :userId
+WHERE t.user_id = :userId
+  AND t.status IN ('vigente', 'atrasado')
+ORDER BY distanceMetres ASC
+LIMIT 1;
+```
+
+`ST_DWithin` se usa para los radios de 2 km / 5 km:
+
+```sql
+AND ST_DWithin(
+      ST_Centroid(s.geo_location)::geography,
+      u.geo_location::geography,
+      2000
+    )
+```
+
+El backend expone además un endpoint "clásico" (`/my/nearest`) que calcula
+distancias con la **fórmula de Haversine en Java** sobre los centroides,
+útil para comparar/validar resultados con el cálculo nativo de PostGIS.
+
+El **frontend consume ambos** en `Dashboard.vue`:
+- `getClosestTask()` → `/my/closest-task` (PostGIS).
+- `getNearestTask()` no se usa allí todavía (queda como segundo camino vía
+  Haversine para `/my/nearest` con `lat`/`lon` del navegador).
+
+### Promedio de distancia (dos variantes)
+
+- **`/my/average-distance`** — distancia promedio de tareas **del usuario**
+  a su propia ubicación (`JOIN users ON u.id = :userId`).
+- **`/my/average-distance-global`** — promedio global usando `CROSS JOIN`
+  contra el usuario actual (mismo resultado por construcción; existe como
+  variante para experimentar con `CROSS JOIN` en SQL nativo).
+
+---
+
+## Frontend — estructura y rutas
+
+### Routing (`router/index.js`)
+
+```
+/                  → redirect a /login
+/login             → LoginView
+/register          → RegisterView
+
+/layout autenticado:
+  /dashboard       → DashboardView
+  /tasks           → TasksView
+  /notifications   → NotificationsView
+  /sectors         → SectorCreateView   (sólo si user.role === 'ADMIN')
+```
+
+`router.beforeEach` protege las rutas con `meta.requiresAuth`: si no hay
+sesión intenta `restoreSession()` (consulta `/api/auth/me`) y, si falla,
+redirige a `/login`.
+
+### Servicios
+
+- **`services/http-common.js`** — Axios configurado con
+  `withCredentials: true` y un *interceptor* que lee la cookie `auth_token`
+  y la inyecta como `Authorization: Bearer ...` en cada request. Soporta
+  también `VITE_BACKEND_SERVER` + `VITE_BACKEND_PORT` para deploys
+  distribuidos. Exporta `apiBaseUrl` para casos puntuales.
+- **`services/auth.js`** — Estado global en `currentUser` con patrón
+  pub/sub (`subscribe`, `notify`). Funciones: `login`, `register`,
+  `logout`, `restoreSession`, `isAuthenticated`, `getUser`. La pantalla
+  `Login.vue` usa `login()`, los componentes reactivos usan `subscribe()`
+  para enterarse de cambios (por ejemplo, al cerrar sesión desde la `Navbar`).
+- **`services/dashboard.js`** — Wrappers finos sobre `/api/task/my/*` y
+  `/api/sectors`. Permite mantener aislada la capa de transporte.
+- **`services/notifications.js`** — `getNotifications`, `getUnreadCount`,
+  `markAsRead`, `markAllAsRead`.
+
+### Componentes principales
+
+- **`Sidebar`** — Enlaces según rol. `Sectores` sólo se renderiza si
+  `user.role === 'ADMIN'`. Suscrito a cambios de auth.
+- **`Navbar`** — Campana con badge (polling de `/unread` cada 5 min) y
+  botón de cerrar sesión.
+- **`TransitionAlert`** + **`useAlert()`** — Sistema de toasts globales
+  (severidad `success` / `info` / `warning` / `error`).
+- **`LocationPicker`** — Mapa Leaflet con selector manual por clic o
+  geolocalización (`navigator.geolocation.getCurrentPosition`).
+
+### Flujo UX más relevante
+
+- **Login / Register**: `Register` exige lat/lon seleccionados en el mapa
+  (porque el modelo guarda la posición del usuario); el formulario es
+  bloqueante hasta que ambos puntos estén listos.
+- **Tasks**: vista de doble panel con lista a la izquierda y detalle a la
+  derecha. Soporta filtro combinado estado + keyword. Sólo ADMIN ve el
+  botón "Limpiar Datos" (`DELETE /api/task/seed/clean`).
+- **SectorCreate**: usa `L.Control.Draw` directamente. Los polígonos
+  dibujados por el usuario se listan en el sidebar; al "Guardar Sector"
+  se envía un `SectorCreateDTO` (nombre + lista de coordenadas) al backend,
+  que cierra el anillo y lo persiste.
+- **Dashboard**: combina 7 peticiones en paralelo con `Promise.all`,
+  tolera fallos individuales con `.catch(() => null)` para no romper toda
+  la página si una consulta no devuelve datos.
+
+### Parche leaflet-draw (crítico)
+
+leaflet-draw 1.0.4 tiene un bug en `L.GeometryUtil.readableArea` (usa una
+variable `type` no declarada). `main.js` aplica un parche global después
+de montar la app:
+
+```js
+window.patchGeometryUtil()
+```
+
+Esto evita el `ReferenceError` al mostrar el área del polígono mientras
+se dibuja en `SectorCreate.vue`.
+
+---
+
+## Autenticación y seguridad
+
+1. **Login**: el frontend hace `POST /api/auth/login` con
+   `{ username, password }`.
+2. **Generación de token**: `AuthenticationService` valida con BCrypt y
+   llama a `JwtService.generateToken`, que firma un JWT HS256 con
+   `subject = username`, claims extra `userId` y `email`, y
+   `expiration = now + JWT_EXPIRATION`.
+3. **Respuesta**: el backend envía la cookie `auth_token` (`HttpOnly`,
+   `SameSite=Lax`, expiración igual al JWT) **y** el cuerpo JSON
+   `{ username, role }` — el token **no** viaja en el JSON gracias a
+   `@JsonIgnore` en `AuthResponse.token`.
+4. **Requests siguientes**:
+   - El frontend reenvía la cookie automáticamente (`withCredentials: true`)
+     y, además, el interceptor de Axios reinyecta la cabecera
+     `Authorization: Bearer ...` extraída de `document.cookie`.
+   - El backend (`JwtAuthenticationFilter`) lee primero la cabecera y
+     luego la cookie. Carga el usuario, mapea roles a
+     `SimpleGrantedAuthority("ROLE_X")` y los registra en el `SecurityContext`.
+5. **Reglas de autorización** (`SecurityConfig`):
+   - `/api/auth/**` y `/error` son públicos.
+   - `OPTIONS /**` permitido (preflight CORS).
+   - **Todo lo demás requiere autenticación**, y los endpoints con
+     `@PreAuthorize("hasRole('ADMIN')")` se validan vía method security
+     (`@EnableMethodSecurity`). El resto distingue ADMIN vs CLIENTE en
+     el cuerpo del controller (no en la URL).
+
+> Para producción cambia `CORS_ALLOWED_ORIGINS` al dominio real y
+> establece `secure=true` en la cookie
+> (`AuthenticationService.buildAuthCookie`).
+
+---
+
+## Tareas automáticas (scheduler)
+
+`TaskService.updateAllTasks()` corre de dos formas:
+
+1. **Al arrancar**: `@EventListener(ApplicationReadyEvent.class)` actualiza
+   todas las tareas vigentes nada más desplegar.
+2. **Diariamente a medianoche (zona horaria `America/Santiago`)**:
+   `@Scheduled(cron = "0 0 0 * * *")`.
+
+En cada ejecución:
+
+- Tareas con `status = 'vigente'` cuya `dueDate` ya pasó → cambian a
+  `atrasado`.
+- Si `dueDate` es hoy o mañana y no existe aún notificación `expiring` →
+  crea una notificación con título "Tarea por vencer".
+
+Toda la operación corre dentro de una transacción `@Transactional`.
+
+---
+
+## Seeder de datos de prueba (sólo ADMIN)
+
+`POST /api/task/seed` con cuerpo:
+
+```json
+{
+  "countPerUser": 10,
+  "targetUserIds": [1, 2],
+  "targetSectorIds": [1, 2],
+  "statusDistribution": {
+    "vigente": 60,
+    "atrasado": 20,
+    "completado": 15,
+    "completadoAtrasado": 5
+  },
+  "forceStatus": null
+}
+```
+
+- Genera `countPerUser × |targetSectorIds|` tareas por cada usuario.
+- `statusDistribution` define probabilidades ponderadas (sólo si
+  `forceStatus` es nulo).
+- Para `atrasado` / `completadoAtrasado` la `dueDate` se coloca en el
+  pasado con `creationDate` anterior.
+- Para `vigente` / `completado` la `dueDate` es futura (1-30 días).
+
+`DELETE /api/task/seed/clean` borra **todas** las tareas y limpia los
+`TaskData` embebidos en cada sector.
+
+---
+
+## Troubleshooting
+
+### `WeakKeyException` al arrancar el backend
+
+`JWT_SECRET` es demasiado corto. HS256 requiere mínimo 256 bits (64
+caracteres ASCII). Regenera con:
+
+```bash
+openssl rand -base64 64 | tr -d '\n' | (echo; cat) >> .env
+```
+
+### Vite no recarga cambios en Docker
+
+Verifica que `usePolling: true` esté en `vite.config.js`. Si editaste
+archivos en el host, Docker los ve a través del bind-mount
+`./Frontend:/app` declarado en `docker-compose.yml`.
+
+### `pkix` / certificados al levantar el backend
+
+Si trabajas detrás de un proxy con SSL con inspección, define
+`SPRING_PROFILES_ACTIVE=dev` o un truststore. En entorno local estándar no
+hace falta.
+
+### `ReferenceError: type is not defined` al dibujar un polígono
+
+Es el bug conocido de leaflet-draw 1.0.4. El parche se aplica
+automáticamente desde `main.js` justo después del mount; si aparece, revisa
+que `window.patchGeometryUtil()` se ejecuta efectivamente.
+
+### Admin no se crea
+
+`data.sql` corre una única vez: si ya existía un usuario con
+`admin@gmail.com` no lo vuelve a crear. Para forzar la creación:
+
+```sql
+DELETE FROM users WHERE email = 'admin@gmail.com';
+```
+
+y luego reiniciar el backend con `spring.sql.init.mode=always` (ya viene por
+defecto).
+
+### El login devuelve 404 en lugar de 401
+
+`AuthenticationService.login` busca primero por `username` y luego por
+`email`. Si ninguno existe lanza `ResponseStatusException(NOT_FOUND)`.
+Si las credenciales son inválidas devuelve `UNAUTHORIZED`. La UI muestra
+el mensaje apropiado en cada caso.
+
+### CORS error desde el frontend
+
+Asegúrate de que `CORS_ALLOWED_ORIGINS` en `.env` coincide **exactamente**
+con el origen del frontend (incluyendo el puerto) — el navegador rechaza
+orígenes que no coincidan incluso por un carácter.
+
+---
+
+## Resumen rápido
+
+```bash
+# 1. Configurar
+cp .env.example .env
+# editar JWT_SECRET con al menos 64 caracteres
+
+# 2. Levantar
+docker compose up -d --build
+
+# 3. Entrar
+# Frontend → http://localhost:5173
+# Login admin → admin / admin
+```
