@@ -52,6 +52,22 @@ const resources = ref([]);
 const isLoading = ref(false);
 const mapEl = ref(null);
 let map = null;
+// layers
+let tectonicsLayer = L.geoJSON(null, { 
+    style: { color: 'red', weight: 2 },
+    onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<strong>${feature.properties.name}</strong><br>Tipo: ${feature.properties.type}`);
+    }
+});
+
+let riskZonesLayer = L.geoJSON(null, { 
+    style: { color: 'orange', fillOpacity: 0.5 },
+    onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<strong>${feature.properties.name}</strong><br>Severidad: ${feature.properties.severity_level}`);
+    }
+});
+
+let layerControl = null; // Para el menú de selección
 
 const totalRam = computed(() => resources.value.reduce((sum, r) => sum + (r.total_ram || 0), 0));
 const totalCpu = computed(() => resources.value.reduce((sum, r) => sum + (r.total_cpu || 0), 0));
@@ -92,12 +108,42 @@ const fetchResources = async () => {
   }
 };
 
+const loadTectonicLayers = async () => {
+  try {
+    const res = await api.get('/api/risk-zone/type/TECTONICO');
+    tectonicsLayer.addData(res.data);
+  } catch (error) {
+    console.error('Error cargando placas tectónicas:', error);
+  }
+};
+
+const loadRiskZonesLayers = async () => {
+  try {
+    const res = await api.get('/api/risk-zone/geojson');
+    riskZonesLayer.addData(res.data);
+  } catch (error) {
+    console.error('Error cargando zonas de riesgo:', error);
+  }
+};
+
 onMounted(async () => {
   map = L.map(mapEl.value).setView([-33.5984, -70.5758], 3);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
+
+  // Definir qué se mostrará en el control de capas
+  const overlayMaps = {
+    "Placas Tectónicas": tectonicsLayer,
+    "Zonas de Riesgo": riskZonesLayer
+  };
+
+  // Agregar control al mapa
+  layerControl = L.control.layers(null, overlayMaps).addTo(map);
+
   await fetchResources();
+  await loadTectonicLayers();
+  await loadRiskZonesLayers();
 });
 
 onBeforeUnmount(() => {

@@ -116,6 +116,39 @@ CREATE TABLE "Ticket" (
       ON DELETE CASCADE
 );
 
+-- Tabla de zonas de riesgo (Placas tectónicas y otros riesgos)
+-- Ahora con columna 'Metadata' (JSONB) para capturar propiedades dinámicas de GeoJSON
+CREATE TABLE "RiskZone" (
+  "Zona_id"        BIGSERIAL PRIMARY KEY,
+  "Name"           VARCHAR(80), 
+  "Type"           VARCHAR(50), 
+  "Severity_level" INTEGER, 
+  "Metadata"       JSONB, -- Aquí guardarás PlateName, Code, Layer, etc.
+  "Geom"           geometry(Polygon, 4326)
+);
+
+-- Tabla de datacenters
+CREATE TABLE "Datacenter" (
+  "Datacenter_id" BIGSERIAL PRIMARY KEY,
+  "Name"          VARCHAR(80) NOT NULL,
+  "Status"        VARCHAR(50) NOT NULL,
+  "Capacity"      INTEGER NOT NULL,
+  "Region_id"     BIGINT NOT NULL,
+  "Geom"          geometry(Point, 4326),
+  CONSTRAINT "FK_Datacenter_Region_id"
+    FOREIGN KEY ("Region_id") REFERENCES "Region"("Region_id")
+);
+
+-- Índices espaciales y de metadatos (GIST para geometría, GIN para JSONB)
+CREATE INDEX "zona_riesgo_geom_idx" ON "ZonaRiesgo" USING GIST ("Geom");
+CREATE INDEX "zona_riesgo_metadata_idx" ON "ZonaRiesgo" USING GIN ("Metadata");
+CREATE INDEX "datacenter_geom_idx" ON "Datacenter" USING GIST ("Geom");
+
+-- Alteración de la tabla Instance
+ALTER TABLE "Instance" ADD COLUMN "Datacenter_id" BIGINT;
+ALTER TABLE "Instance" 
+  ADD CONSTRAINT "FK_Instance_Datacenter_id" 
+  FOREIGN KEY ("Datacenter_id") REFERENCES "Datacenter"("Datacenter_id");
 
 
 -- Insertar rol admin
