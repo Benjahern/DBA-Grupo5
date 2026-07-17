@@ -1,22 +1,18 @@
 package Host_Usach_Cloud.Backend.Repository;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class RiskZoneRepository {
-    private final JdbcTemplate jdbcTemplate;
 
-    public RiskZoneRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-    /**
-     * Obtiene todas las zonas de riesgo.
-     * Incluye 'Metadata' en las propiedades para el frontend.
-     */
+    // Este metodo es el que consume tu Frontend (Vue)
     public String findAllAsGeoJson() {
-        String query = """
+        String sql = """
             SELECT jsonb_build_object(
                 'type', 'FeatureCollection',
                 'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)
@@ -24,48 +20,20 @@ public class RiskZoneRepository {
             FROM (
                 SELECT jsonb_build_object(
                     'type', 'Feature',
-                    'geometry', ST_AsGeoJSON("Geom")::jsonb,
+                    'geometry', ST_AsGeoJSON(wkb_geometry)::jsonb,
                     'properties', jsonb_build_object(
-                        'id', "Zona_id",
-                        'name', "Name",
-                        'type', "Type",
-                        'severity_level', "Severity_level",
-                        'metadata', "Metadata"
+                        'id', ogc_fid,
+                        'layer', layer,
+                        'code', code,
+                        'name', platename
                     )
                 ) AS feature
-                FROM "RiskZone"
+                FROM "riskzone"
             ) features;
         """;
-
-        return jdbcTemplate.queryForObject(query, String.class);
+        return jdbcTemplate.queryForObject(sql, String.class);
     }
 
-    /**
-     * Filtra por tipo de riesgo y devuelve GeoJSON.
-     */
-    public String findByTypeAsGeoJson(String type) {
-        String query = """
-            SELECT jsonb_build_object(
-                'type', 'FeatureCollection',
-                'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)
-            )
-            FROM (
-                SELECT jsonb_build_object(
-                    'type', 'Feature',
-                    'geometry', ST_AsGeoJSON("Geom")::jsonb,
-                    'properties', jsonb_build_object(
-                        'id', "Zona_id",
-                        'name', "Name",
-                        'type', "Type",
-                        'severity_level', "Severity_level",
-                        'metadata', "Metadata"
-                    )
-                ) AS feature
-                FROM "RiskZone"
-                WHERE "Type" = ?
-            ) features;
-        """;
-
-        return jdbcTemplate.queryForObject(query, String.class, type);
-    }
+    // Opcional: Si necesitas traer las entidades reales a Java para lógica de negocio
+    // puedes implementar un RowMapper aquí.
 }

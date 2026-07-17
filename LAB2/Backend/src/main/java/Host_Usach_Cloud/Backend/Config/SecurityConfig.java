@@ -78,6 +78,7 @@ public class SecurityConfig {
                 .pathMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                 .pathMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .pathMatchers("/api/auth/**").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/risks").permitAll()
                 .anyExchange().authenticated()
             )
             .addFilterAt(jwtAuthenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)

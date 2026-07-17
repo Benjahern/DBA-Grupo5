@@ -8,23 +8,9 @@ import org.springframework.stereotype.Service;
 public class RiskZoneService {
 
     @Autowired
-    private RiskZoneRepository riskZoneRepository; // Nombre de clase actualizado
+    private RiskZoneRepository repository;
 
-    /**
-     * Obtiene todas las zonas de riesgo (placas y otras)
-     */
-    public String obtenerTodasLasZonasGeoJson() {
-        return riskZoneRepository.findAllAsGeoJson();
-    }
-
-    /**
-     * Obtiene zonas filtradas por tipo (ej. 'TECTONICO')
-     */
-    public String obtenerZonasPorTipoGeoJson(String tipo) {
-        if (tipo == null || tipo.isEmpty()) {
-            return obtenerTodasLasZonasGeoJson();
-        }
-        // Llamamos al método actualizado del repositorio
-        return riskZoneRepository.findByTypeAsGeoJson(tipo.toUpperCase());
+    public String getAllRiskZonesAsGeoJson() {
+        return repository.findAllAsGeoJson();
     }
 }

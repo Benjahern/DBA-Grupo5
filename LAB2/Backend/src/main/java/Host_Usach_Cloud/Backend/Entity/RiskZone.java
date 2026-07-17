@@ -1,25 +1,19 @@
 package Host_Usach_Cloud.Backend.Entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.Geometry;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 public class RiskZone {
-
-    private Long Zona_id;
-    private String Name;
-    private String Type;
-    private Integer Severity_level;
-
-    // Nueva columna JSONB
-    private JsonNode Metadata;     // Representa el objeto JSONB de Postgres
-
-    private Polygon Geom;
+    private Long ogcFid;      // PRIMARY KEY creada por ogr2ogr
+    private String layer;
+    private String code;
+    private String platename;
+    private Geometry wkbGeometry;
 }

@@ -60,13 +60,6 @@ let tectonicsLayer = L.geoJSON(null, {
     }
 });
 
-let riskZonesLayer = L.geoJSON(null, { 
-    style: { color: 'orange', fillOpacity: 0.5 },
-    onEachFeature: (feature, layer) => {
-        layer.bindPopup(`<strong>${feature.properties.name}</strong><br>Severidad: ${feature.properties.severity_level}`);
-    }
-});
-
 let layerControl = null; // Para el menú de selección
 
 const totalRam = computed(() => resources.value.reduce((sum, r) => sum + (r.total_ram || 0), 0));
@@ -110,19 +103,11 @@ const fetchResources = async () => {
 
 const loadTectonicLayers = async () => {
   try {
-    const res = await api.get('/api/risk-zone/type/TECTONICO');
+    const res = await api.get('/api/risks'); // Tu nuevo endpoint
     tectonicsLayer.addData(res.data);
+    tectonicsLayer.addTo(map); // Añadir al mapa directamente
   } catch (error) {
     console.error('Error cargando placas tectónicas:', error);
-  }
-};
-
-const loadRiskZonesLayers = async () => {
-  try {
-    const res = await api.get('/api/risk-zone/geojson');
-    riskZonesLayer.addData(res.data);
-  } catch (error) {
-    console.error('Error cargando zonas de riesgo:', error);
   }
 };
 
@@ -134,8 +119,7 @@ onMounted(async () => {
 
   // Definir qué se mostrará en el control de capas
   const overlayMaps = {
-    "Placas Tectónicas": tectonicsLayer,
-    "Zonas de Riesgo": riskZonesLayer
+    "Placas Tectónicas": tectonicsLayer
   };
 
   // Agregar control al mapa
@@ -143,7 +127,6 @@ onMounted(async () => {
 
   await fetchResources();
   await loadTectonicLayers();
-  await loadRiskZonesLayers();
 });
 
 onBeforeUnmount(() => {
