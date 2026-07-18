@@ -52,6 +52,17 @@ const resources = ref([]);
 const isLoading = ref(false);
 const mapEl = ref(null);
 let map = null;
+// layers
+let tectonicsLayer = L.geoJSON(null, { 
+    style: { color: 'red', weight: 2 },
+    onEachFeature: (feature, layer) => {
+        layer.bindPopup(`<strong>${feature.properties.name}</strong><br>Tipo: ${feature.properties.type}`);
+    }
+});
+let regionsLayer = L.layerGroup();
+let datacentersLayer = L.layerGroup();
+
+let layerControl = null; // Para el menú de selección
 
 const totalRam = computed(() => resources.value.reduce((sum, r) => sum + (r.total_ram || 0), 0));
 const totalCpu = computed(() => resources.value.reduce((sum, r) => sum + (r.total_cpu || 0), 0));
@@ -78,13 +89,17 @@ const fetchResources = async () => {
           fillOpacity: 0.4,
           weight: 2
         }
-      }).addTo(map);
+      });
 
       layer.bindPopup(
         `<strong>${row.region_name}</strong><br>` +
         `RAM: ${row.total_ram} GB · CPU: ${row.total_cpu} · Storage: ${row.total_storage} GB`
       );
+
+      regionsLayer.addLayer(layer);
     });
+
+    regionsLayer.addTo(map);
   } catch (error) {
     console.error('Error al cargar la Vista Materializada:', error);
   } finally {
@@ -92,12 +107,64 @@ const fetchResources = async () => {
   }
 };
 
+const loadTectonicLayers = async () => {
+  try {
+    const res = await api.get('/api/risks');
+    tectonicsLayer.addData(res.data);
+    tectonicsLayer.addTo(map);
+  } catch (error) {
+    console.error('Error cargando placas tectónicas:', error);
+  }
+};
+
+const loadDatacenters = async () => {
+  try {
+    const res = await api.get('/api/datacenters');
+
+    res.data.forEach(dc => {
+      const marker = L.marker([
+        dc.latitude,
+        dc.longitude
+      ]);
+
+      marker.bindPopup(`
+        <strong>${dc.name}</strong>
+      `);
+
+      datacentersLayer.addLayer(marker);
+    });
+
+    datacentersLayer.addTo(map);
+
+  } catch (error) {
+    console.error('Error cargando datacenters:', error);
+  }
+};
+
 onMounted(async () => {
   map = L.map(mapEl.value).setView([-33.5984, -70.5758], 3);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+
+  L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '&copy; OpenStreetMap contributors'
+    }
+  ).addTo(map);
+
+  const overlayMaps = {
+    'Placas Tectónicas': tectonicsLayer,
+    'Regiones': regionsLayer,
+    'Datacenters': datacentersLayer
+  };
+
+  layerControl = L.control.layers(
+    null,
+    overlayMaps
+  ).addTo(map);
+
   await fetchResources();
+  await loadTectonicLayers();
+  await loadDatacenters();
 });
 
 onBeforeUnmount(() => {

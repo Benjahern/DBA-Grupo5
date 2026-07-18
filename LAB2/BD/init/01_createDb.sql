@@ -116,7 +116,18 @@ CREATE TABLE "Ticket" (
       ON DELETE CASCADE
 );
 
-
+CREATE TABLE "Datacenter" (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    capacity INTEGER NOT NULL,
+    current_instances INTEGER DEFAULT 0,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    region_id BIGINT NOT NULL,
+    risk_zone_id BIGINT NOT NULL,
+    geom geometry(Point,4326)
+);
 
 -- Insertar rol admin
 INSERT INTO "Role" ("Role") VALUES ('admin'), ('user');
