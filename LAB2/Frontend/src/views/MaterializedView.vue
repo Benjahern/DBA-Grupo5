@@ -59,6 +59,8 @@ let tectonicsLayer = L.geoJSON(null, {
         layer.bindPopup(`<strong>${feature.properties.name}</strong><br>Tipo: ${feature.properties.type}`);
     }
 });
+let regionsLayer = L.layerGroup();
+let datacentersLayer = L.layerGroup();
 
 let layerControl = null; // Para el menú de selección
 
@@ -87,13 +89,17 @@ const fetchResources = async () => {
           fillOpacity: 0.4,
           weight: 2
         }
-      }).addTo(map);
+      });
 
       layer.bindPopup(
         `<strong>${row.region_name}</strong><br>` +
         `RAM: ${row.total_ram} GB · CPU: ${row.total_cpu} · Storage: ${row.total_storage} GB`
       );
+
+      regionsLayer.addLayer(layer);
     });
+
+    regionsLayer.addTo(map);
   } catch (error) {
     console.error('Error al cargar la Vista Materializada:', error);
   } finally {
@@ -103,30 +109,62 @@ const fetchResources = async () => {
 
 const loadTectonicLayers = async () => {
   try {
-    const res = await api.get('/api/risks'); // Tu nuevo endpoint
+    const res = await api.get('/api/risks');
     tectonicsLayer.addData(res.data);
-    tectonicsLayer.addTo(map); // Añadir al mapa directamente
+    tectonicsLayer.addTo(map);
   } catch (error) {
     console.error('Error cargando placas tectónicas:', error);
   }
 };
 
+const loadDatacenters = async () => {
+  try {
+    const res = await api.get('/api/datacenters');
+
+    res.data.forEach(dc => {
+      const marker = L.marker([
+        dc.latitude,
+        dc.longitude
+      ]);
+
+      marker.bindPopup(`
+        <strong>${dc.name}</strong>
+      `);
+
+      datacentersLayer.addLayer(marker);
+    });
+
+    datacentersLayer.addTo(map);
+
+  } catch (error) {
+    console.error('Error cargando datacenters:', error);
+  }
+};
+
 onMounted(async () => {
   map = L.map(mapEl.value).setView([-33.5984, -70.5758], 3);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
 
-  // Definir qué se mostrará en el control de capas
+  L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: '&copy; OpenStreetMap contributors'
+    }
+  ).addTo(map);
+
   const overlayMaps = {
-    "Placas Tectónicas": tectonicsLayer
+    'Placas Tectónicas': tectonicsLayer,
+    'Regiones': regionsLayer,
+    'Datacenters': datacentersLayer
   };
 
-  // Agregar control al mapa
-  layerControl = L.control.layers(null, overlayMaps).addTo(map);
+  layerControl = L.control.layers(
+    null,
+    overlayMaps
+  ).addTo(map);
 
   await fetchResources();
   await loadTectonicLayers();
+  await loadDatacenters();
 });
 
 onBeforeUnmount(() => {

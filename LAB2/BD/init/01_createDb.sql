@@ -116,26 +116,18 @@ CREATE TABLE "Ticket" (
       ON DELETE CASCADE
 );
 
--- Tabla de datacenters
 CREATE TABLE "Datacenter" (
-  "Datacenter_id" BIGSERIAL PRIMARY KEY,
-  "Name"          VARCHAR(80) NOT NULL,
-  "Status"        VARCHAR(50) NOT NULL,
-  "Capacity"      INTEGER NOT NULL,
-  "Region_id"     BIGINT NOT NULL,
-  "Geom"          geometry(Point, 4326),
-  CONSTRAINT "FK_Datacenter_Region_id"
-    FOREIGN KEY ("Region_id") REFERENCES "Region"("Region_id")
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    capacity INTEGER NOT NULL,
+    current_instances INTEGER DEFAULT 0,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    region_id BIGINT NOT NULL,
+    risk_zone_id BIGINT NOT NULL,
+    geom geometry(Point,4326)
 );
-
-CREATE INDEX "datacenter_geom_idx" ON "Datacenter" USING GIST ("Geom");
-
--- Alteración de la tabla Instance
-ALTER TABLE "Instance" ADD COLUMN "Datacenter_id" BIGINT;
-ALTER TABLE "Instance" 
-  ADD CONSTRAINT "FK_Instance_Datacenter_id" 
-  FOREIGN KEY ("Datacenter_id") REFERENCES "Datacenter"("Datacenter_id");
-
 
 -- Insertar rol admin
 INSERT INTO "Role" ("Role") VALUES ('admin'), ('user');

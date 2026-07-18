@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.locationtech.jts.geom.Point;
 
 @Data
 @AllArgsConstructor
@@ -12,14 +11,30 @@ import org.locationtech.jts.geom.Point;
 @Builder
 public class Datacenter {
 
-    private Long Datacenter_id;
-    private String Name;
-    private String Status;       // OPERATIVO, MANTENIMIENTO, etc.
-    private Integer Capacity;
+    private Long id;
 
-    // Relación basada en ID
-    private Long Region_id;
+    private String name;
 
-    // Punto geométrico (PostGIS)
-    private Point Geom;
+    private DatacenterStatus status;
+
+    public enum DatacenterStatus {
+        OPERATIVO,
+        MANTENIMIENTO,
+        DEGRADADO,
+        FUERA_DE_SERVICIO
+    }
+
+    private Integer currentInstances;
+
+    private Integer capacity;
+
+    // Ubicación
+    private Double latitude;
+    private Double longitude;
+
+    // Relaciones
+    private Long regionId;
+
+    // Placa tectónica donde está ubicado
+    private Long riskZoneId;
 }

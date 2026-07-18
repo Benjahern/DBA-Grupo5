@@ -72,6 +72,7 @@
           <ul v-if="openGroups.regions && !isCollapsed" class="nav-list">
             <li @click="goToRegions">Uso de recursos</li>
             <li @click="goToRegionsManagement">Gestión de recursos</li>
+            <li @click="goToDatacentersManagement">Gestión de datacenters</li>
           </ul>
         </transition>
       </div>
@@ -218,6 +219,10 @@ const goToRegions = () => {
 
 const goToRegionsManagement = () => {
   router.push({ name: 'regions-management' });
+};
+
+const goToDatacentersManagement = () => {
+  router.push({ name: 'datacenters-management' });
 };
 </script>
 

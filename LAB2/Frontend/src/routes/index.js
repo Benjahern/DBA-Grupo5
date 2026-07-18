@@ -11,6 +11,7 @@ import { getUser } from '../services/auth.js';
 import Cost from '../views/IntanceTicket.vue';
 import Regions from '../views/MaterializedView.vue';
 import RegionsManagement from "../views/RegionCreate.vue";
+import DatacenterManagement from "../views/DatacenterCreate.vue";
 
 const routes = [
   { path: '/', name: 'landing', component: LandingPage, meta: { title: 'Host Cloud Usach' } },
@@ -23,7 +24,8 @@ const routes = [
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFound, meta: { title: 'Página No Encontrada' } },
   { path: '/cost', name: 'cost', component: Cost, meta: { title: 'Costos', requiresAuth: true } },
   { path: '/regions', name: 'regions', component: Regions, meta: {title: 'Regiones', requiresAuth: true} },
-  { path: '/regions/management', name: 'regions-management', component: RegionsManagement, meta: {title: 'Gestión de Regiones', requiresAuth: true} }
+  { path: '/regions/management', name: 'regions-management', component: RegionsManagement, meta: {title: 'Gestión de Regiones', requiresAuth: true} },
+  { path: '/datacenters/management', name: 'datacenters-management', component: DatacenterManagement, meta: {title: 'Gestión de Datacenters', requiresAuth: true} }
 ];
 
 const router = createRouter({
