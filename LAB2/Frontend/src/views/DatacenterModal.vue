@@ -228,8 +228,7 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { point, polygon } from '@turf/helpers'
-import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
+import * as turf from '@turf/turf'
 
 import api from '@/services/http-common.js'
 
@@ -380,16 +379,16 @@ const isPointInsideSelectedRegion = (
     return false
   }
 
-  const clickedPoint = point([
+  const clickedPoint = turf.point([
     longitude,
     latitude
   ])
 
-  const regionPolygon = polygon([
+  const regionPolygon = turf.polygon([
     selectedRegion.value.coordinates
   ])
 
-  return booleanPointInPolygon(
+  return turf.booleanPointInPolygon(
     clickedPoint,
     regionPolygon
   )
