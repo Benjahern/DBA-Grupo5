@@ -97,6 +97,37 @@
 
         </div>
 
+        <div class="form-group">
+
+          <label for="datacenter-region">
+            Región
+          </label>
+
+          <select
+            id="datacenter-region"
+            v-model="form.regionId"
+            required
+          >
+
+            <option
+              disabled
+              value=""
+            >
+              Seleccione una región
+            </option>
+
+            <option
+              v-for="region in regions"
+              :key="region.region_id"
+              :value="region.region_id"
+            >
+              {{ region.name }}
+            </option>
+
+          </select>
+
+        </div>
+
 
         <!-- Mapa -->
         <div class="map-panel">
@@ -194,9 +225,11 @@
 
 <script setup>
 
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { point, polygon } from '@turf/helpers'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
 
 import api from '@/services/http-common.js'
 
@@ -211,6 +244,7 @@ const emit = defineEmits([
 
 const { show } = useAlert()
 
+const regions = ref([])
 
 const form = ref({
 
@@ -236,15 +270,17 @@ let map = null
 
 let marker = null
 
+let regionLayer = null
+
 const locationInfo = ref(null)
 
 const loading = ref(false)
 
 const error = ref(null)
 
-
 const selectedLatLng = ref(null)
 
+const selectedRegion = ref(null)
 
 const mapCenter = ref([
   -33.4489,
@@ -268,6 +304,95 @@ const emitClose = () => {
 
   emit('close')
 
+}
+
+watch(
+  () => form.value.regionId,
+  (newRegionId) => {
+    form.value.latitude = null
+    form.value.longitude = null
+
+    if (marker) {
+      map.removeLayer(marker)
+      marker = null
+    }
+
+    drawRegion(newRegionId)
+  }
+)
+
+const loadRegions = async () => {
+  try {
+    const response = await api.get('api/regions')
+    console.log('REGIONES:', response.data)
+    regions.value = response.data
+  } catch (err) {
+    console.error('Error cargando regiones', err)
+  }
+}
+
+const drawRegion = (regionId) => {
+
+  const region = regions.value.find(
+    r => r.region_id === Number(regionId)
+  )
+
+  console.log('ID seleccionado:', regionId)
+  console.log('Región encontrada:', region)
+
+  if (!region) return
+
+  selectedRegion.value = region
+
+  if (regionLayer) {
+    map.removeLayer(regionLayer)
+  }
+
+  const latLngs = region.coordinates.map(
+    ([lng, lat]) => [lat, lng]
+  )
+
+  console.log('LatLngs transformados:', latLngs)
+
+  regionLayer = L.polygon(
+    latLngs,
+    {
+      color: '#2563eb',
+      weight: 3,
+      fillOpacity: 0.25
+    }
+  ).addTo(map)
+
+  map.fitBounds(
+    regionLayer.getBounds(),
+    {
+      padding: [20, 20]
+    }
+  )
+}
+
+const isPointInsideSelectedRegion = (
+  latitude,
+  longitude
+) => {
+
+  if (!selectedRegion.value) {
+    return false
+  }
+
+  const clickedPoint = point([
+    longitude,
+    latitude
+  ])
+
+  const regionPolygon = polygon([
+    selectedRegion.value.coordinates
+  ])
+
+  return booleanPointInPolygon(
+    clickedPoint,
+    regionPolygon
+  )
 }
 
 const fetchLocationInfo = async (
@@ -316,6 +441,33 @@ const handleMapClick = async (event) => {
 
   const lng =
     event.latlng.lng
+
+  if (!selectedRegion.value) {
+
+    show({
+      message: 'Debes seleccionar una región primero',
+      severity: 'warning',
+      autoHideMs: 3000
+    })
+
+    return
+  }
+
+  const inside = isPointInsideSelectedRegion(
+    lat,
+    lng
+  )
+
+  if (!inside) {
+
+    show({
+      message: 'La ubicación debe estar dentro de la región seleccionada',
+      severity: 'warning',
+      autoHideMs: 3000
+    })
+
+    return
+  }
 
   form.value.latitude = lat
 
@@ -414,12 +566,13 @@ const handleSubmit = async () => {
 
 onMounted(() => {
 
+  loadRegions()
+
   map = L.map(mapEl.value)
     .setView(
       [-33.4489, -70.6693],
       5
     )
-
 
   L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -428,7 +581,6 @@ onMounted(() => {
         '&copy; OpenStreetMap contributors'
     }
   ).addTo(map)
-
 
   map.on('click', handleMapClick)
 

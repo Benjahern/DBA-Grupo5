@@ -1,6 +1,7 @@
 package Host_Usach_Cloud.Backend.Controllers;
 
 import Host_Usach_Cloud.Backend.Entity.Datacenter;
+import Host_Usach_Cloud.Backend.Services.DTO.DatacenterDistance;
 import Host_Usach_Cloud.Backend.Services.DTO.LocationRequest;
 import Host_Usach_Cloud.Backend.Services.DTO.LocationResponse;
 import Host_Usach_Cloud.Backend.Services.DatacenterService;
@@ -84,6 +85,19 @@ public class DatacenterController {
                 datacenterService.getLocationInfo(
                         request.getLatitude(),
                         request.getLongitude()
+                )
+        );
+    }
+
+    @GetMapping("/recommendations/{instanceId}")
+    public ResponseEntity<List<DatacenterDistance>>
+    getRecommendations(
+            @PathVariable Long instanceId
+    ) {
+
+        return ResponseEntity.ok(
+                datacenterService.getRecommendedDatacenters(
+                        instanceId
                 )
         );
     }

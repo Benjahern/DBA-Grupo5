@@ -79,6 +79,7 @@ public class SecurityConfig {
                 .pathMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .pathMatchers("/api/auth/**").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/risks").permitAll()
+                    .pathMatchers(HttpMethod.GET, "/api/datacenters/**").permitAll()
                     .pathMatchers(HttpMethod.POST, "/api/datacenters/**").permitAll()
                 .anyExchange().authenticated()
             )
