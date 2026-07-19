@@ -12,6 +12,8 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Repository
 public class InstanceRepository {
@@ -148,7 +150,7 @@ public class InstanceRepository {
                 .Color(rs.getString("Color"))
                 .build();
     }
-
+/*
     private Duration parsePgInterval(String intervalStr) {
         if (intervalStr == null || intervalStr.isBlank()) {
             return Duration.ZERO;
@@ -163,7 +165,31 @@ public class InstanceRepository {
             return Duration.ZERO;
         }
     }
+*/
+    private Duration parsePgInterval(String intervalStr) {
+        if (intervalStr == null || intervalStr.isBlank()) {
+            return Duration.ZERO;
+        }
 
-    
+        String normalized = intervalStr.trim();
+        long days = 0L;
+
+        Matcher dayMatcher = Pattern.compile("^(\\d+)\\s+day[s]?\\b").matcher(normalized);
+        if (dayMatcher.find()) {
+            days = Long.parseLong(dayMatcher.group(1));
+            normalized = normalized.substring(dayMatcher.end()).trim();
+        }
+
+        Matcher timeMatcher = Pattern.compile("^(?:(\\d+):)?(\\d+):(\\d+)(?:\\.(\\d+))?$").matcher(normalized);
+        if (!timeMatcher.matches()) {
+            return Duration.ZERO;
+        }
+
+        long hours = timeMatcher.group(1) != null ? Long.parseLong(timeMatcher.group(1)) : 0L;
+        long minutes = Long.parseLong(timeMatcher.group(2));
+        long seconds = Long.parseLong(timeMatcher.group(3));
+
+        return Duration.ofDays(days).plusHours(hours).plusMinutes(minutes).plusSeconds(seconds);
+    }
 
 }

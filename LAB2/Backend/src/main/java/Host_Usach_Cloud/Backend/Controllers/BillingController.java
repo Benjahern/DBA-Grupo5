@@ -1,11 +1,10 @@
 package Host_Usach_Cloud.Backend.Controllers;
 
+import Host_Usach_Cloud.Backend.Services.DTO.BillingDistanceRequest;
+import Host_Usach_Cloud.Backend.Services.DTO.BillingDistanceResult;
 import Host_Usach_Cloud.Backend.Services.BillingService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/billing")
@@ -21,5 +20,14 @@ public class BillingController {
     public ResponseEntity<Void> generateMonthlyTickets(@PathVariable Long userId) {
         billingService.generateMonthlyTickets(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/instances/{instanceId}/calculate-distance")
+    public ResponseEntity<BillingDistanceResult> calculateDistance(
+            @PathVariable Long instanceId,
+            @RequestBody BillingDistanceRequest request) {
+        BillingDistanceResult result = billingService.calculateDistanceBilling(
+                instanceId, request.userLat(), request.userLon());
+        return ResponseEntity.ok(result);
     }
 }

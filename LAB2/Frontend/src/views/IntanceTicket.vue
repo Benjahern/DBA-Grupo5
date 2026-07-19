@@ -122,9 +122,17 @@
                       </tr>
                     </tbody>
                     <tfoot>
+                      <tr v-if="instance.billing">
+                        <td>Recargo por latencia geográfica</td>
+                        <td class="text-center">{{ (instance.billing.surchargeRate * 100).toFixed(2) }}%</td>
+                        <td class="text-center">{{ instance.hoursActive.toFixed(1) }}</td>
+                        <td class="text-right">${{ instance.billing.surchargeAmount.toFixed(2) }}</td>
+                      </tr>
                       <tr>
-                        <td colspan="3" class="total-label">Costo Total Estimado</td>
-                        <td class="total-amount">${{ calculateTotal(instance).toFixed(2) }}</td>
+                        <td colspan="3" class="total-label">Total</td>
+                        <td class="total-amount">
+                            ${{ (Number(instance.billing ? instance.billing.total : 0) + Number(calculateTotal(instance))).toFixed(2) }}
+                        </td>
                       </tr>
                     </tfoot>
                   </table>
@@ -144,18 +152,32 @@ import { computed, onMounted, ref } from 'vue';
 import api from '../services/http-common.js';
 import { useAlert } from '../components/Alerts/useAlert.js';
 import { getUser } from '../services/auth.js';
+import { fetchUserLocation } from '../services/ping.js';
 
 const { show } = useAlert();
 
 const instances = ref([]);
 const isLoading = ref(false);
-
+const distanceBilling = ref({});
 const cpusCatalog = ref([]);
 const ramsCatalog = ref([]);
 const storagesCatalog = ref([]);
 const regionsCatalog = ref([]);
 const expandedId = ref(null);
 
+const fetchDistanceBilling = async (instanceId) => {
+  const loc = await fetchUserLocation();
+  if (!loc) {
+    throw new Error('No se pudo obtener la ubicación del usuario');
+  }
+
+  const response = await api.post(`/api/billing/instances/${instanceId}/calculate-distance`, {
+    userLat: loc.latitude,
+    userLon: loc.longitude,
+  });
+
+  distanceBilling.value[instanceId] = response.data;
+};
 
 const loadCatalogs = async () => {
     try {
@@ -257,6 +279,7 @@ const toViewInstance = (raw) => {
         cpu: parseHardware(raw?.cpu_id ?? raw?.Cpu_id, cpusCatalog.value, 'cpu_id', 'Cpu_id'),
         ram: parseHardware(raw?.ram_id ?? raw?.Ram_id, ramsCatalog.value, 'ram_id', 'Ram_id'),
         storage: parseHardware(raw?.storage_id ?? raw?.Storage_id, storagesCatalog.value, 'storage_id', 'Storage_id'),
+        billing: distanceBilling.value[raw.instance_id] || null,
     };
 };
 
@@ -299,8 +322,15 @@ const initDashboard = async () => {
 
 onMounted(initDashboard);
 
-const toggleDetail = (id) => {
-    expandedId.value = expandedId.value === id ? null : id;
+const toggleDetail = async (id) => {
+  expandedId.value = expandedId.value === id ? null : id;
+  if (expandedId.value === id && !distanceBilling.value[id]) {
+    try {
+      await fetchDistanceBilling(id);
+    } catch (err) {
+      show({ message: 'No se pudo calcular el recargo por latencia.', severity: 'error' });
+    }
+  }
 };
 
 const calculateTotal = (instance) => {
