@@ -72,6 +72,7 @@ CREATE TABLE "Instance" (
   "State"        VARCHAR(80)    NOT NULL CHECK ("State" IN ('Running', 'Stopped', 'Terminated')),
   "User_id"      BIGINT         NOT NULL,
   "Region_id"    BIGINT         NOT NULL,
+  "Datacenter_id" BIGINT,
   "Terminated"   BOOLEAN        NOT NULL DEFAULT FALSE,
   "Container_id" VARCHAR(80),            
   "Started_at"   TIMESTAMP WITHOUT TIME ZONE,

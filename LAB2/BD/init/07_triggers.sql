@@ -87,3 +87,64 @@ FOR EACH ROW
 WHEN (OLD."State" IS DISTINCT FROM NEW."State")
 EXECUTE FUNCTION calculate_active_hours();
 
+
+-- Trigger 4: Soberanía de datos — Bloquear creación de instancia si la distancia
+-- entre el datacenter elegido y el centroide de la región supera 4300 km.
+CREATE OR REPLACE FUNCTION check_datacenter_distance()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_dc_lat    DOUBLE PRECISION;
+    v_dc_lng    DOUBLE PRECISION;
+    v_region_geom geometry;
+    v_distance_km DOUBLE PRECISION;
+    v_dc_name   VARCHAR;
+    v_region_name VARCHAR;
+BEGIN
+    -- Si no se especificó datacenter, permitir la creación (campo opcional)
+    IF NEW."Datacenter_id" IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    -- Obtener coordenadas del datacenter
+    SELECT latitude, longitude, name
+    INTO v_dc_lat, v_dc_lng, v_dc_name
+    FROM "Datacenter"
+    WHERE id = NEW."Datacenter_id";
+
+    IF v_dc_lat IS NULL THEN
+        RAISE EXCEPTION 'Datacenter con id % no encontrado', NEW."Datacenter_id";
+    END IF;
+
+    -- Obtener geometría de la región
+    SELECT "Geom", "Name"
+    INTO v_region_geom, v_region_name
+    FROM "Region"
+    WHERE "Region_id" = NEW."Region_id";
+
+    IF v_region_geom IS NULL THEN
+        RAISE EXCEPTION 'Región con id % no encontrada o sin geometría', NEW."Region_id";
+    END IF;
+
+    -- Calcular distancia en km entre el datacenter y el centroide de la región
+    v_distance_km := ST_Distance(
+        ST_SetSRID(ST_MakePoint(v_dc_lng, v_dc_lat), 4326)::geography,
+        ST_Centroid(v_region_geom)::geography
+    ) / 1000.0;
+
+    -- Validar umbral de 4300 km
+    IF v_distance_km > 4300 THEN
+        RAISE EXCEPTION
+            'Soberanía de datos: El datacenter "%" está a % km del centroide de la región "%", '
+            'lo cual supera el límite permitido de 4300 km.',
+            v_dc_name, ROUND(v_distance_km::numeric, 1), v_region_name;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_datacenter_distance
+BEFORE INSERT ON "Instance"
+FOR EACH ROW
+EXECUTE FUNCTION check_datacenter_distance();
+

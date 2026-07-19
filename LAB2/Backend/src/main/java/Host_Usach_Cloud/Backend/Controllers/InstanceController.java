@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,18 +32,23 @@ public class InstanceController {
     }
 
     @PostMapping
-    public ResponseEntity<Instance> create(@RequestBody CreateInstanceRequest request) {
-        Instance instance = instanceService.createInstance(
-                request.getName(),
-                request.getUserId(),
-                request.getCpuId(),
-                request.getRamId(),
-                request.getStorageId(),
-                request.getRegionId(),
-                request.getColor(),
-                request.getBaseImage()
-        );
-        return ResponseEntity.ok(instance);
+    public ResponseEntity<?> create(@RequestBody CreateInstanceRequest request) {
+        try {
+            Instance instance = instanceService.createInstance(
+                    request.getName(),
+                    request.getUserId(),
+                    request.getCpuId(),
+                    request.getRamId(),
+                    request.getStorageId(),
+                    request.getRegionId(),
+                    request.getDatacenterId(),
+                    request.getColor(),
+                    request.getBaseImage()
+            );
+            return ResponseEntity.ok(instance);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @GetMapping("/{id}")
@@ -106,6 +112,7 @@ public class InstanceController {
         private Long ramId;
         private Long storageId;
         private Long regionId;
+        private Long datacenterId;
         private String color;
         private String baseImage;
 
@@ -155,6 +162,14 @@ public class InstanceController {
 
         public void setRegionId(Long regionId) {
             this.regionId = regionId;
+        }
+
+        public Long getDatacenterId() {
+            return datacenterId;
+        }
+
+        public void setDatacenterId(Long datacenterId) {
+            this.datacenterId = datacenterId;
         }
 
         public String getColor() {
