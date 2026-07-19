@@ -41,7 +41,7 @@ public class InstanceService {
 
     //En proceso, me faltan los demas repos (benja h)
     public Instance createInstance(String name, Long userId, Long cpuId, Long ramId, Long storageId,
-                                          Long regionId, String color, String baseImage){
+                                          Long regionId, Long datacenterId, String color, String baseImage){
 
         //Revisamos los recursos antes
         CPU cpu = cpuService.getCpuById(cpuId);
@@ -97,6 +97,7 @@ public class InstanceService {
                     .State("Running")
                     .User_id(userId)
                     .Region_id(regionId)
+                    .Datacenter_id(datacenterId)
                     .Container_id(container.getId())
                     .Active_hours(Duration.ZERO)
                     .Ip_address(ipAddress)

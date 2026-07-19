@@ -81,6 +81,7 @@ public class SecurityConfig {
                     .pathMatchers(HttpMethod.GET, "/api/risks").permitAll()
                     .pathMatchers(HttpMethod.GET, "/api/datacenters/**").permitAll()
                     .pathMatchers(HttpMethod.POST, "/api/datacenters/**").permitAll()
+                .pathMatchers("/error").permitAll()
                 .anyExchange().authenticated()
             )
             .addFilterAt(jwtAuthenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)

@@ -18,6 +18,10 @@
               <dd>{{ summary.region || 'Sin seleccionar' }}</dd>
             </div>
             <div>
+              <dt>Datacenter</dt>
+              <dd>{{ summary.datacenter || 'Sin seleccionar' }}</dd>
+            </div>
+            <div>
               <dt>CPU</dt>
               <dd>{{ summary.cpu || 'Sin seleccionar' }}</dd>
             </div>
@@ -48,6 +52,7 @@ const props = defineProps({
     default: () => ({
       name: '',
       region: '',
+      datacenter: '',
       cpu: '',
       ram: '',
       storage: ''

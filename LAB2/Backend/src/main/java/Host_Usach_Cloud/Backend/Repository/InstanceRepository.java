@@ -23,8 +23,8 @@ public class InstanceRepository {
     }
 
     public Instance save(Instance instance) {
-        String sql = "INSERT INTO \"Instance\" (\"Name\", \"Ram_id\", \"Cpu_id\", \"Started_at\", \"Storage_id\", \"Terminated\", \"State\", \"User_id\", \"Region_id\", \"Container_id\", \"Active_hours\", \"Ip_address\", \"Color\") " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (? || ' seconds')::interval, ?, ?) " +
+        String sql = "INSERT INTO \"Instance\" (\"Name\", \"Ram_id\", \"Cpu_id\", \"Started_at\", \"Storage_id\", \"Terminated\", \"State\", \"User_id\", \"Region_id\", \"Datacenter_id\", \"Container_id\", \"Active_hours\", \"Ip_address\", \"Color\") " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (? || ' seconds')::interval, ?, ?) " +
             "RETURNING \"Instance_id\"";
 
         long activeSeconds = instance.getActive_hours() != null ? instance.getActive_hours().getSeconds() : 0L;
@@ -40,6 +40,7 @@ public class InstanceRepository {
             instance.getState(),
             instance.getUser_id(),
             instance.getRegion_id(),
+            instance.getDatacenter_id(),
             instance.getContainer_id(),
             activeSeconds,
             instance.getIp_address(),
@@ -85,7 +86,7 @@ public class InstanceRepository {
 
     public boolean update(Instance instance) {
         String sql = "UPDATE \"Instance\" SET \"Name\" = ?, \"Ram_id\" = ?, \"Cpu_id\" = ?, \"Started_at\" = ?, \"Storage_id\" = ?, " +
-            "\"Terminated\" = ?, \"State\" = ?, \"User_id\" = ?, \"Region_id\" = ?, \"Container_id\" = ?, \"Active_hours\" = (? || ' seconds')::interval, " +
+            "\"Terminated\" = ?, \"State\" = ?, \"User_id\" = ?, \"Region_id\" = ?, \"Datacenter_id\" = ?, \"Container_id\" = ?, \"Active_hours\" = (? || ' seconds')::interval, " +
             "\"Ip_address\" = ?, \"Color\" = ? WHERE \"Instance_id\" = ?";
 
         Timestamp startedAt = instance.getStarted_at() != null
@@ -105,6 +106,7 @@ public class InstanceRepository {
                 instance.getState(),
                 instance.getUser_id(),
                 instance.getRegion_id(),
+                instance.getDatacenter_id(),
                 instance.getContainer_id(),
                 activeSeconds,
                 instance.getIp_address(),
@@ -139,6 +141,7 @@ public class InstanceRepository {
                 .State(rs.getString("State"))
                 .User_id(rs.getLong("User_id"))
                 .Region_id(rs.getLong("Region_id"))
+                .Datacenter_id(rs.getLong("Datacenter_id"))
                 .Container_id(rs.getString("Container_id"))
                 .Active_hours(activeHours)
                 .Ip_address(rs.getString("Ip_address"))

@@ -35,6 +35,8 @@ public class Instance {
 
     private Long Region_id;
 
+    private Long Datacenter_id;
+
     // Container de Docker
     private String Container_id;
 

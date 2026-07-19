@@ -25,6 +25,16 @@
 						</label>
 
 						<label class="field">
+							<span>Datacenter</span>
+							<select v-model="datacenterId">
+								<option value="">Selecciona Datacenter</option>
+								<option v-for="dc in datacenters" :key="dc.id" :value="dc.id">
+									{{ dc.name }}
+								</option>
+							</select>
+						</label>
+
+						<label class="field">
 							<span>CPU</span>
 							<select v-model="cpuId">
 								<option value="">Selecciona CPU</option>
@@ -85,11 +95,13 @@ const cpuId = ref('');
 const ramId = ref('');
 const storageId = ref('');
 const regionId = ref('');
+const datacenterId = ref('');
 
 const cpus = ref([]);
 const rams = ref([]);
 const storages = ref([]);
 const regions = ref([]);
+const datacenters = ref([]);
 const confirmOpen = ref(false);
 const isSubmitting = ref(false);
 
@@ -101,6 +113,7 @@ const findLabel = (items, id, valueKey = 'id', labelKey = 'name') => {
 const confirmSummary = computed(() => ({
 	name: name.value,
 	region: findLabel(regions.value, regionId.value, 'region_id', 'name'),
+	datacenter: findLabel(datacenters.value, datacenterId.value, 'id', 'name'),
 	cpu: findLabel(cpus.value, cpuId.value, 'cpu_id', 'quantity')
 		? `${findLabel(cpus.value, cpuId.value, 'cpu_id', 'quantity')} vCPU`
 		: '',
@@ -118,11 +131,13 @@ const fetchOptions = async () => {
 		const ramResp = await api.get('/api/rams').catch(() => ({ data: [] }));
 		const storageResp = await api.get('/api/storages').catch(() => ({ data: [] }));
 		const regionResp = await api.get('/api/regions').catch(() => ({ data: [] }));
+		const datacenterResp = await api.get('/api/datacenters').catch(() => ({ data: [] }));
 		
 		cpus.value = Array.isArray(cpuResp.data) ? cpuResp.data : [];
 		rams.value = Array.isArray(ramResp.data) ? ramResp.data : [];
 		storages.value = Array.isArray(storageResp.data) ? storageResp.data : [];
 		regions.value = Array.isArray(regionResp.data) ? regionResp.data : [];
+		datacenters.value = Array.isArray(datacenterResp.data) ? datacenterResp.data : [];
 	} catch (error_) {
 		console.error('Error fetching options', error_);
 	}
@@ -173,6 +188,7 @@ const handleConfirm = () => {
 		ramId: ramId.value || null,
 		storageId: storageId.value || null,
 		regionId: regionId.value || null,
+		datacenterId: datacenterId.value || null,
 		userId,
 		color: '#609df0',
 		baseImage: 'ubuntu:latest'
