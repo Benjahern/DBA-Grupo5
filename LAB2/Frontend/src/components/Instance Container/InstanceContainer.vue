@@ -16,11 +16,10 @@
             <PauseButton v-if="isRunning" :instance-id="instanceId" @updated="handleUpdated" />
             <DeleteButton :instance-id="instanceId" @updated="handleUpdated" />
             <StatsButton :instance-id="instanceId" />
+            <ResilienceButton :instance-id="instanceId" icon-only />
         </div>
     </div>
 </template>
-
-
 
 <script setup>
 import { computed, ref, watch } from 'vue';
@@ -30,6 +29,7 @@ import DeleteButton from '../Instance Actions Buttons/DeleteButton.vue';
 import StatsButton from '../Instance Actions Buttons/StatsButton.vue';
 import Badge from '../Badges/Badge.vue';
 import { statusToBadgeVariant } from '../Badges/statusToBadgeVariant.js';
+import ResilienceButton from '../Instance Actions Buttons/ResilienceButton.vue';
 
 const props = defineProps({
     instance: Object
@@ -66,7 +66,7 @@ const handleUpdated = (nextState) => {
     padding: 4px;
     margin: 16px 0;
     display: grid;
-    grid-template-columns: 40px 1fr 0.6fr 0.8fr 0.8fr 0.6fr 0.5fr 0.6fr 120px;
+    grid-template-columns: 40px 1fr 0.6fr 0.8fr 0.8fr 0.6fr 0.5fr 0.6fr auto;
     gap: 8px;
     align-items: center;
 }
@@ -87,5 +87,4 @@ const handleUpdated = (nextState) => {
     justify-content: flex-end;
     gap: 8px;
 }
-
 </style>
