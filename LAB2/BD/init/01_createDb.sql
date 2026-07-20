@@ -162,6 +162,6 @@ INSERT INTO "Datacenter" ("name", "status", "capacity", "current_instances", "la
 ('DC1', 'OPERATIVO', 10, 3, 34.2481355458975,  -118.2568359375000, 2, 10, ST_GeomFromText('POINT(-118.2568359375 34.2481355458975)', 4326));
 
 INSERT INTO "Instance" ("Name", "Ram_id", "Cpu_id", "Storage_id", "State", "User_id", "Region_id", "Datacenter_id", "Container_id", "Started_at", "Active_hours", "Ip_address", "Color") VALUES
-('SVA1', 4, 4, 4, 'Running', 1, 2, 1, 'sample-container-sva1', NOW(), '2:00:00', '172.17.0.3', '#609df'),
-('SVA2', 2, 2, 2, 'Stopped', 1, 2, 1, 'sample-container-sva2', NOW() - INTERVAL '1 day', '1:00:00', '172.17.0.4', '#2ecc71'),
-('SVA3', 3, 3, 3, 'Running', 1, 2, 1, 'sample-container-sva3', NOW() - INTERVAL '4 hours', '12:00:00', '172.17.0.5', '#e67e22');
+('SVA1', 4, 4, 4, 'Terminated', 1, 2, 1, 'sample-container-sva1', NOW(), '2:00:00', '172.17.0.3', '#609df'),
+('SVA2', 2, 2, 2, 'Terminated', 1, 2, 1, 'sample-container-sva2', NOW() - INTERVAL '1 day', '1:00:00', '172.17.0.4', '#2ecc71'),
+('SVA3', 3, 3, 3, 'Terminated', 1, 2, 1, 'sample-container-sva3', NOW() - INTERVAL '4 hours', '12:00:00', '172.17.0.5', '#e67e22');
