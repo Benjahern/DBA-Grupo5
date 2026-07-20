@@ -131,7 +131,7 @@
                       <tr>
                         <td colspan="3" class="total-label">Total</td>
                         <td class="total-amount">
-                            ${{ (Number(instance.billing ? instance.billing.total : 0) + Number(calculateTotal(instance))).toFixed(2) }}
+                            ${{ (Number(instance.billing ? instance.billing.total : 0)).toFixed(2) }}
                         </td>
                       </tr>
                     </tfoot>
@@ -259,12 +259,12 @@ const fetchCurrentUser = async () => {
 const toViewInstance = (raw) => {
     const rawHours = raw?.active_hours ?? raw?.Active_hours;
     let computedHours = parseDurationToHours(rawHours);
-    
+    /*
     const currentState = String(raw?.state ?? raw?.State ?? '').toUpperCase();
     if (computedHours === 0 && (currentState === 'RUNNING' || currentState === 'ACTIVO')) {
         computedHours = 1; 
     }
-
+    */
     const regId = raw?.region_id ?? raw?.Region_id;
     const foundRegion = regionsCatalog.value.find(r => r.region_id == regId || r.Region_id == regId || r.id == regId);
     const regionNameStr = foundRegion ? (foundRegion.Name || foundRegion.name) : `Region #${regId || 'Desconocida'}`;
