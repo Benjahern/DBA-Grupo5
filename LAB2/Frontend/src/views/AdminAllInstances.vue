@@ -3,6 +3,9 @@
 		<div class="instances-card">
 			<header class="card-header">
 				<h2>Todas las instancias (Admin) {{ activeCount }} de {{ totalCount }}</h2>
+				<div class="header-actions">
+					<ResilienceButton />
+				</div>
 			</header>
 
 			<div class="table-header">
@@ -36,6 +39,7 @@ import { computed, onMounted, ref } from 'vue';
 import api from '../services/http-common.js';
 import { useAlert } from '../components/Alerts/useAlert.js';
 import InstanceContainer from '../components/Instance Container/InstanceContainer.vue';
+import ResilienceButton from '../components/Instance Actions Buttons/ResilienceButton.vue';
 
 const { show } = useAlert();
 

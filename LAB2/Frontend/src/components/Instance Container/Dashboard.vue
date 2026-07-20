@@ -3,7 +3,9 @@
 		<div class="instances-card">
 			<header class="card-header">
 				<h2>Instancias activas del usuario {{ activeCount }} de {{ totalCount }}</h2>
-                <CreateButton @created="fetchInstances"></CreateButton>
+                <div class="header-actions">
+        			<CreateButton @created="fetchInstances"></CreateButton>
+    			</div>
 			</header>
 
 			<div class="table-header">
@@ -38,6 +40,7 @@ import { useAlert } from '../Alerts/useAlert.js';
 import { getUser } from '../../services/auth.js';
 import InstanceContainer from './InstanceContainer.vue';
 import CreateButton from '../Instance Actions Buttons/CreateButton.vue';
+import ResilienceButton from '../Instance Actions Buttons/ResilienceButton.vue';
 
 const { show } = useAlert();
 
@@ -204,6 +207,12 @@ onMounted(async () => {
 	justify-content: space-between;
 	align-items: center;
 	margin-bottom: 12px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px; 
 }
 
 .card-header h2 {
