@@ -10,6 +10,7 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.StatsCmd;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Statistics;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import com.github.dockerjava.api.DockerClient;
 import reactor.core.publisher.Flux;
@@ -270,3 +271,4 @@ public class InstanceService {
         }
     }
 }
+
