@@ -4,7 +4,7 @@
       <button class="toggle-btn" @click="toggleSidebar">
         ☰
       </button>
-      <span v-if="!isCollapsed" class="logo-text">USACH Cloud</span>"
+      <span v-if="!isCollapsed" class="logo-text">USACH Cloud</span>
     </div>
     
     <nav class="sidebar-nav">
