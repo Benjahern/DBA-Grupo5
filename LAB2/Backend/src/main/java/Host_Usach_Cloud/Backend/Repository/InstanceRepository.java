@@ -166,6 +166,7 @@ public class InstanceRepository {
         }
     }
 */
+
     private Duration parsePgInterval(String intervalStr) {
         if (intervalStr == null || intervalStr.isBlank()) {
             return Duration.ZERO;

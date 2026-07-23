@@ -1,15 +1,7 @@
 package Host_Usach_Cloud.Backend.Services;
 
-import Host_Usach_Cloud.Backend.Entity.CPU;
-import Host_Usach_Cloud.Backend.Entity.Instance;
-import Host_Usach_Cloud.Backend.Entity.Ram;
-import Host_Usach_Cloud.Backend.Entity.Region;
-import Host_Usach_Cloud.Backend.Entity.Storage;
-import Host_Usach_Cloud.Backend.Repository.CpuRepository;
-import Host_Usach_Cloud.Backend.Repository.InstanceRepository;
-import Host_Usach_Cloud.Backend.Repository.RamRepository;
-import Host_Usach_Cloud.Backend.Repository.RegionRepository;
-import Host_Usach_Cloud.Backend.Repository.StorageRepository;
+import Host_Usach_Cloud.Backend.Entity.*;
+import Host_Usach_Cloud.Backend.Repository.*;
 import Host_Usach_Cloud.Backend.Services.DTO.BillingDistanceResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,23 +16,23 @@ public class BillingService {
 
     private final JdbcTemplate jdbcTemplate;
     private final InstanceRepository instanceRepository;
-    private final RegionRepository regionRepository;
     private final CpuRepository cpuRepository;
     private final RamRepository ramRepository;
     private final StorageRepository storageRepository;
+    private final DatacenterRepository datacenterRepository;
 
     public BillingService(JdbcTemplate jdbcTemplate,
                           InstanceRepository instanceRepository,
-                          RegionRepository regionRepository,
                           CpuRepository cpuRepository,
                           RamRepository ramRepository,
-                          StorageRepository storageRepository) {
+                          StorageRepository storageRepository,
+                          DatacenterRepository datacenterRepository) {
         this.jdbcTemplate = jdbcTemplate;
         this.instanceRepository = instanceRepository;
-        this.regionRepository = regionRepository;
         this.cpuRepository = cpuRepository;
         this.ramRepository = ramRepository;
         this.storageRepository = storageRepository;
+        this.datacenterRepository = datacenterRepository;
     }
 
     public void generateMonthlyTickets(Long userId) {
@@ -51,15 +43,14 @@ public class BillingService {
     public BillingDistanceResult calculateDistanceBilling(Long instanceId, double userLat, double userLon) {
         Instance instance = instanceRepository.findById(instanceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Instance not found: " + instanceId));
-
         CPU cpu = cpuRepository.findById(instance.getCpu_id())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CPU not found"));
         Ram ram = ramRepository.findById(instance.getRam_id())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "RAM not found"));
         Storage storage = storageRepository.findById(instance.getStorage_id())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Storage not found"));
-        Region region = regionRepository.findById(instance.getRegion_id())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Region not found"));
+        Datacenter datacenter = datacenterRepository.findById(instance.getDatacenter_id())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Datacenter not found"));
 
         double totalCostPh = cpu.getCost_ph() + ram.getCost_ph() + storage.getCost_ph();
         double activeHours = instance.getActive_hours() != null
@@ -67,15 +58,10 @@ public class BillingService {
                 : 0.0;
         BigDecimal baseCost = BigDecimal.valueOf(totalCostPh * activeHours);
 
-        // getCentroid() returns [lon, lat] — GeoJSON order (X=longitude, Y=latitude)
-        double[] centroid = region.getCentroid();
-        if (centroid == null) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Region has no geometry");
-        }
-        double regionLat = centroid[1];
-        double regionLon = centroid[0];
+        double datacenterLat = datacenter.getLatitude();
+        double datacenterLon = datacenter.getLongitude();
 
-        double distanceKm = haversineKm(userLat, userLon, regionLat, regionLon);
+        double distanceKm = haversineKm(userLat, userLon, datacenterLat, datacenterLon);
         double rate = surchargeRate(distanceKm);
 
         BigDecimal surcharge = baseCost.multiply(BigDecimal.valueOf(rate));
@@ -89,6 +75,7 @@ public class BillingService {
                 total
         );
     }
+
 
     public static double surchargeRate(double distanceKm) {
         if (distanceKm <= 200) return 0.00;
