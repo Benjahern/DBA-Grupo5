@@ -2,7 +2,6 @@ package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.Datacenter;
 import Host_Usach_Cloud.Backend.Repository.DatacenterRepository;
-import Host_Usach_Cloud.Backend.Services.DTO.CoordinateDTO;
 import Host_Usach_Cloud.Backend.Services.DTO.DatacenterDistance;
 import Host_Usach_Cloud.Backend.Services.DTO.LocationResponse;
 import lombok.RequiredArgsConstructor;
@@ -144,29 +143,19 @@ public class DatacenterService {
             Long instanceId
     ) {
 
-        CoordinateDTO centroid =
+        Datacenter instanceDatacenter =
                 datacenterRepository
-                        .findInstanceCentroid(instanceId)
+                        .findInstanceDatacenter(instanceId)
                         .orElseThrow(() ->
                                 new RuntimeException(
-                                        "No se encontró la ubicación de la instancia"
-                                ));
-
-        LocationResponse riskZone =
-                datacenterRepository
-                        .findRiskZoneByCoordinates(
-                                centroid.getLatitude(),
-                                centroid.getLongitude()
-                        )
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "No se encontró una zona de riesgo para la instancia"
+                                        "No se encontró el datacenter de la instancia"
                                 ));
 
         return datacenterRepository.findClosestDatacenters(
-                centroid.getLatitude(),
-                centroid.getLongitude(),
-                riskZone.getRiskZoneId()
+                instanceDatacenter.getLatitude(),
+                instanceDatacenter.getLongitude(),
+                instanceDatacenter.getRiskZoneId(),
+                instanceDatacenter.getId()
         );
     }
 }

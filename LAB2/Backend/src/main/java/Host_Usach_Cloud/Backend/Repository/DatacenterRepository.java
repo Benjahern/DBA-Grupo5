@@ -1,7 +1,6 @@
 package Host_Usach_Cloud.Backend.Repository;
 
 import Host_Usach_Cloud.Backend.Entity.Datacenter;
-import Host_Usach_Cloud.Backend.Services.DTO.CoordinateDTO;
 import Host_Usach_Cloud.Backend.Services.DTO.DatacenterDistance;
 import Host_Usach_Cloud.Backend.Services.DTO.LocationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -215,34 +214,26 @@ public class DatacenterRepository {
         return results.stream().findFirst();
     }
 
-    public Optional<CoordinateDTO> findInstanceCentroid(Long instanceId) {
+    public Optional<Datacenter> findInstanceDatacenter(Long instanceId) {
 
         String sql = """
         SELECT
-            ST_Y(
-                ST_Centroid(r."Geom")
-            ) AS latitude,
-
-            ST_X(
-                ST_Centroid(r."Geom")
-            ) AS longitude
-
+            d.id,
+            d.name,
+            d.status,
+            d.capacity,
+            d.current_instances,
+            d.latitude,
+            d.longitude,
+            d.region_id,
+            d.risk_zone_id
         FROM "Instance" i
-
-        JOIN "Region" r
-            ON i."Region_id" = r."Region_id"
-
+        JOIN "Datacenter" d ON i."Datacenter_id" = d.id
         WHERE i."Instance_id" = ?
         """;
 
-        List<CoordinateDTO> results = jdbcTemplate.query(
-                sql,
-                (rs, rowNum) -> CoordinateDTO.builder()
-                        .latitude(rs.getDouble("latitude"))
-                        .longitude(rs.getDouble("longitude"))
-                        .build(),
-                instanceId
-        );
+        List<Datacenter> results =
+                jdbcTemplate.query(sql, rowMapper, instanceId);
 
         return results.stream().findFirst();
     }
@@ -250,36 +241,38 @@ public class DatacenterRepository {
     public List<DatacenterDistance> findClosestDatacenters(
             Double latitude,
             Double longitude,
-            Long excludedRiskZoneId
+            Long excludedRiskZoneId,
+            Long excludedDatacenterId
     ) {
 
         String sql = """
-        
+
                 SELECT
             d.id,
             d.name,
             d.latitude,
             d.longitude,
             d.risk_zone_id,
-        
+
             ST_Distance(
                 ST_SetSRID(
                     ST_Point(d.longitude, d.latitude),
                     4326
                 )::geography,
-        
+
                 ST_SetSRID(
                     ST_Point(?, ?),
                     4326
                 )::geography
             ) / 1000.0 AS distance_km
-        
+
         FROM "Datacenter" d
-        
+
         WHERE d.risk_zone_id <> ?
-        
+          AND d.id <> ?
+
         ORDER BY distance_km
-        
+
         LIMIT 3
         """;
 
@@ -295,7 +288,8 @@ public class DatacenterRepository {
                         .build(),
                 longitude,
                 latitude,
-                excludedRiskZoneId
+                excludedRiskZoneId,
+                excludedDatacenterId
         );
     }
 
