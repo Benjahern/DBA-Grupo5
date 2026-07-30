@@ -1,2 +1,4 @@
--- indexar el estado del servidor y la direccion iṕ
-CREATE INDEX index_instance_ip_state ON "Instance" ("Ip_address", "State")
+-- Los índices sobre "Instance" fueron removidos: la entidad vive en MongoDB.
+-- Los índices equivalentes ahora viven en Mongo (auto-index-creation + CompoundIndex
+-- en InstanceDocument: {userId,state} y @Indexed en state, userId).
+-- El servicio MonitoringService ahora hace findByState("Running") usando esos índices.

@@ -28,6 +28,16 @@ services:
     image: mongo:8.2
     container_name: bda_mongo
     restart: unless-stopped
+    # CMD args (NO override del entrypoint oficial): el entrypoint detecta
+    # MONGO_INITDB_ROOT_USERNAME/PASSWORD, crea el root user en admin sobre
+    # un WiredTiger fresco, y luego arranca el mongod final con --auth
+    # añadido + nuestros flags (--replSet, --bind_ip_all, --keyFile).
+    command:
+      - "--replSet"
+      - "rs0"
+      - "--bind_ip_all"
+      - "--keyFile"
+      - "/keyfile/mongo-keyfile"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -36,12 +46,56 @@ services:
       - "${MONGO_PORT}:27017"
     volumes:
       - mongo_data:/data/db
+      # Named volume con keyfile generado por mongo-keyfile-init, propiedad
+      # de UID 999 (mongodb) y perms 400. Se monta en /keyfile (mismo path
+      # que usa el init container) y mongod lee /keyfile/mongo-keyfile.
+      - mongo_keyfile:/keyfile:ro
     healthcheck:
-      test: [ "CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" | grep -q 1" ]
+      test: [ "CMD-SHELL", "mongosh --quiet -u \"$$MONGO_USER\" -p \"$$MONGO_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep -q 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
+    depends_on:
+      mongo-keyfile-init:
+        condition: service_completed_successfully
+
+  # Genera el keyfile con UID 999 (mongodb) y perms 400. Mongo exige
+  # propiedad mongodb + perms 400 exactos. Si fuera bind-mount desde el
+  # host, el owner sería el UID del host (benjaminhm=1000), no 999.
+  mongo-keyfile-init:
+    image: alpine:3.20
+    container_name: bda_mongo_keyfile_init
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache openssl >/dev/null 2>&1
+        openssl rand -base64 756 > /keyfile/mongo-keyfile
+        chmod 400 /keyfile/mongo-keyfile
+        chown 999:999 /keyfile/mongo-keyfile
+        echo "keyfile generado, owner=999, perms=400"
+    volumes:
+      - mongo_keyfile:/keyfile
+    restart: "no"
+
+  # El entrypoint oficial NO inicia el replica set automáticamente — esto
+  # lo hacemos nosotros una vez que mongo está healthy y autenticado.
+  mongo-init:
+    image: mongo:8.2
+    container_name: bda_mongo_init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
+    entrypoint: ["bash", "-c"]
+    command:
+      - >
+        mongosh --host mongo:27017 -u "$$MONGO_USER" -p "$$MONGO_PASSWORD" --authenticationDatabase admin --quiet --eval
+        'try { rs.status() } catch (e) { rs.initiate({_id:"rs0", members:[{_id:0, host:"mongo:27017"}]}) }'
+    restart: "no"
 
   backend:
     build:
@@ -55,6 +109,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      MONGO_HOST: mongo
+      MONGO_PORT: ${MONGO_PORT}
+      MONGO_DB: ${MONGO_DB}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASSWORD: ${MONGO_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
@@ -75,6 +134,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
+      mongo-init:
+        condition: service_completed_successfully
   frontend:
     build:
       context: ./Frontend
@@ -95,3 +158,4 @@ volumes:
   pg_data:
   gradle_cache:
   mongo_data:
+  mongo_keyfile:

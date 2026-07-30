@@ -1,10 +1,14 @@
 package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.Datacenter;
+import Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument;
 import Host_Usach_Cloud.Backend.Repository.DatacenterRepository;
 import Host_Usach_Cloud.Backend.Services.DTO.DatacenterDistance;
 import Host_Usach_Cloud.Backend.Services.DTO.LocationResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,6 +18,7 @@ import java.util.List;
 public class DatacenterService {
 
     private final DatacenterRepository datacenterRepository;
+    private final MongoTemplate mongoTemplate;
 
     public Long createDatacenter(Datacenter datacenter) {
 
@@ -140,16 +145,23 @@ public class DatacenterService {
     }
 
     public List<DatacenterDistance> getRecommendedDatacenters(
-            Long instanceId
+            Long numericId
     ) {
 
-        Datacenter instanceDatacenter =
-                datacenterRepository
-                        .findInstanceDatacenter(instanceId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "No se encontró el datacenter de la instancia"
-                                ));
+        InstanceDocument instance = mongoTemplate.findOne(
+                Query.query(Criteria.where("numericId").is(numericId)),
+                InstanceDocument.class, "instances");
+        if (instance == null) {
+            throw new RuntimeException("Instancia no encontrada: " + numericId);
+        }
+
+        if (instance.getDatacenterId() == null) {
+            throw new RuntimeException("La instancia " + numericId + " no tiene datacenter asignado");
+        }
+
+        Datacenter instanceDatacenter = datacenterRepository.findById(instance.getDatacenterId())
+                .orElseThrow(() -> new RuntimeException(
+                        "No se encontró el datacenter (id=" + instance.getDatacenterId() + ") de la instancia " + numericId));
 
         return datacenterRepository.findClosestDatacenters(
                 instanceDatacenter.getLatitude(),

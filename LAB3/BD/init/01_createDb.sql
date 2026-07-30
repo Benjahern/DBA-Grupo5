@@ -62,60 +62,36 @@ CREATE TABLE "User_role" (
       ON DELETE RESTRICT
 );
 
-
-CREATE TABLE "Instance" (
-  "Instance_id"  BIGSERIAL PRIMARY KEY,
-  "Name"         VARCHAR(80)    NOT NULL,
-  "Ram_id"       BIGINT         NOT NULL,
-  "Cpu_id"       BIGINT         NOT NULL,
-  "Storage_id"   BIGINT         NOT NULL,
-  "State"        VARCHAR(80)    NOT NULL CHECK ("State" IN ('Running', 'Stopped', 'Terminated')),
-  "User_id"      BIGINT         NOT NULL,
-  "Region_id"    BIGINT         NOT NULL,
-  "Datacenter_id" BIGINT,
-  "Terminated"   BOOLEAN        NOT NULL DEFAULT FALSE,
-  "Container_id" VARCHAR(80),            
-  "Started_at"   TIMESTAMP WITHOUT TIME ZONE,
-  "Active_hours" INTERVAL       NOT NULL DEFAULT INTERVAL '0 seconds',
-  "Ip_address"   VARCHAR(80),
-  "Color"        VARCHAR(80)    NOT NULL,
-  CONSTRAINT "FK_Instance_Ram_id"
-    FOREIGN KEY ("Ram_id")      REFERENCES "Ram"("Ram_id"),
-  CONSTRAINT "FK_Instance_Cpu_id"
-    FOREIGN KEY ("Cpu_id")      REFERENCES "CPU"("Cpu_id"),
-  CONSTRAINT "FK_Instance_Storage_id"
-    FOREIGN KEY ("Storage_id")  REFERENCES "Storage"("Storage_id"),
-  CONSTRAINT "FK_Instance_User_id"
-    FOREIGN KEY ("User_id")     REFERENCES "Users"("User_id"),
-  CONSTRAINT "FK_Instance_Region_id"
-    FOREIGN KEY ("Region_id")   REFERENCES "Region"("Region_id")
-);
-
-
+-- La entidad Instance vive en MongoDB. Las FKs en Postgres apuntan por
+-- Instance_id (VARCHAR(24) = ObjectId hex) sin constraint referencial, porque
+-- la integridad se valida en app.
 CREATE TABLE "Consumption" (
   "Consumption_id" BIGSERIAL PRIMARY KEY,
-  "Instance_id"    BIGINT           NOT NULL,
-  "Cpu_stats"      DOUBLE PRECISION NOT NULL DEFAULT 0,
-  "Ram_stats"      DOUBLE PRECISION NOT NULL DEFAULT 0,
-  "Storage_stats"  DOUBLE PRECISION NOT NULL DEFAULT 0,
-  "Created_at"     TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-  CONSTRAINT "FK_Consumption_Instance_id"
-    FOREIGN KEY ("Instance_id")
-      REFERENCES "Instance"("Instance_id")
-      ON DELETE CASCADE
+  "Instance_id"    BIGINT              NOT NULL,
+  "Cpu_stats"      DOUBLE PRECISION    NOT NULL DEFAULT 0,
+  "Ram_stats"      DOUBLE PRECISION    NOT NULL DEFAULT 0,
+  "Storage_stats"  DOUBLE PRECISION    NOT NULL DEFAULT 0,
+  "Created_at"     TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS consumption_instance_idx ON "Consumption" ("Instance_id");
+CREATE INDEX IF NOT EXISTS consumption_created_idx  ON "Consumption" ("Created_at");
 
 
 CREATE TABLE "Ticket" (
   "Ticket_id"   BIGSERIAL PRIMARY KEY,
-  "Instance_id" BIGINT     NOT NULL,
-  "Usage"       INTERVAL   NOT NULL,
-  "Price"       REAL       NOT NULL,
-  CONSTRAINT "FK_Ticket_Instance_id"
-    FOREIGN KEY ("Instance_id")
-      REFERENCES "Instance"("Instance_id")
+  "Status"      VARCHAR(30)  NOT NULL DEFAULT 'Open',
+  "Description" TEXT,
+  "Instance_id" BIGINT       NOT NULL,
+  "User_id"     BIGINT       NOT NULL,
+  "Usage"       INTERVAL     NOT NULL DEFAULT INTERVAL '0 seconds',
+  "Price"       REAL         NOT NULL DEFAULT 0,
+  "Created_at"  TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+  CONSTRAINT "FK_Ticket_User_id"
+    FOREIGN KEY ("User_id")
+      REFERENCES "Users"("User_id")
       ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS ticket_instance_idx ON "Ticket" ("Instance_id");
 
 CREATE TABLE "Datacenter" (
     id BIGSERIAL PRIMARY KEY,
@@ -160,8 +136,3 @@ INSERT INTO "Region" ("Name", "Geom") VALUES
 
 INSERT INTO "Datacenter" ("name", "status", "capacity", "current_instances", "latitude", "longitude", "region_id", "risk_zone_id", "geom") VALUES
 ('DC1', 'OPERATIVO', 10, 3, 34.2481355458975,  -118.2568359375000, 2, 10, ST_GeomFromText('POINT(-118.2568359375 34.2481355458975)', 4326));
-
-INSERT INTO "Instance" ("Name", "Ram_id", "Cpu_id", "Storage_id", "State", "User_id", "Region_id", "Datacenter_id", "Container_id", "Started_at", "Active_hours", "Ip_address", "Color") VALUES
-('SVA1', 4, 4, 4, 'Terminated', 1, 2, 1, 'sample-container-sva1', NOW(), '2:00:00', '172.17.0.3', '#609df'),
-('SVA2', 2, 2, 2, 'Terminated', 1, 2, 1, 'sample-container-sva2', NOW() - INTERVAL '1 day', '1:00:00', '172.17.0.4', '#2ecc71'),
-('SVA3', 3, 3, 3, 'Terminated', 1, 2, 1, 'sample-container-sva3', NOW() - INTERVAL '4 hours', '12:00:00', '172.17.0.5', '#e67e22');

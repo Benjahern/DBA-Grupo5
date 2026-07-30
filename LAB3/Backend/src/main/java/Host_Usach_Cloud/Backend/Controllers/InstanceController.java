@@ -1,11 +1,11 @@
 package Host_Usach_Cloud.Backend.Controllers;
 
-import Host_Usach_Cloud.Backend.Entity.Instance;
+import Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument;
+import Host_Usach_Cloud.Backend.Mongo.Exceptions.QuotaExceededException;
 import Host_Usach_Cloud.Backend.Services.InstanceService;
 import com.github.dockerjava.api.model.Statistics;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +34,7 @@ public class InstanceController {
     @PostMapping
     public ResponseEntity<?> create(@RequestBody CreateInstanceRequest request) {
         try {
-            Instance instance = instanceService.createInstance(
+            InstanceDocument instance = instanceService.createInstance(
                     request.getName(),
                     request.getUserId(),
                     request.getCpuId(),
@@ -46,22 +46,24 @@ public class InstanceController {
                     request.getBaseImage()
             );
             return ResponseEntity.ok(instance);
+        } catch (QuotaExceededException qe) {
+            return ResponseEntity.status(403).body(Map.of("error", qe.getMessage(), "code", "QUOTA_EXCEEDED"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Instance> getById(@PathVariable Long id) {
+    public ResponseEntity<InstanceDocument> getById(@PathVariable Long id) {
         return ResponseEntity.ok(instanceService.getInstanceById(id));
     }
 
     @GetMapping
-    public ResponseEntity<List<Instance>> getAll(
+    public ResponseEntity<List<InstanceDocument>> getAll(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String state
     ) {
-        List<Instance> instances;
+        List<InstanceDocument> instances;
 
         if (userId != null && state != null) {
             instances = instanceService.getInstancesByUserId(userId)
@@ -73,7 +75,6 @@ public class InstanceController {
         } else if (state != null) {
             instances = instanceService.getInstancesByState(state);
         } else {
-            // Only admin can see all instances without a userId filter
             instances = instanceService.getAllInstances();
         }
 
@@ -81,13 +82,13 @@ public class InstanceController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Instance> update(@PathVariable Long id, @RequestBody Instance instance) {
-        instance.setInstance_id(id);
+    public ResponseEntity<InstanceDocument> update(@PathVariable Long id, @RequestBody InstanceDocument instance) {
+        instance.setNumericId(id);
         return ResponseEntity.ok(instanceService.updateInstance(instance));
     }
 
     @PutMapping("/{id}/state")
-    public ResponseEntity<Instance> updateState(@PathVariable Long id, @RequestBody UpdateStateRequest request) {
+    public ResponseEntity<InstanceDocument> updateState(@PathVariable Long id, @RequestBody UpdateStateRequest request) {
         return ResponseEntity.ok(instanceService.updateStateByid(id, request.getState()));
     }
 
@@ -99,10 +100,10 @@ public class InstanceController {
 
     @GetMapping(value = "/{id}/stats", produces = MediaType.APPLICATION_NDJSON_VALUE)
     public ResponseEntity<Flux<Statistics>> getStats(@PathVariable Long id) {
-        Instance instance = instanceService.getInstanceById(id);
+        InstanceDocument instance = instanceService.getInstanceById(id);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_NDJSON)
-                .body(instanceService.getContainerStatsReactive(instance.getContainer_id()));
+                .body(instanceService.getContainerStatsReactive(instance.getContainerId()));
     }
 
     public static class CreateInstanceRequest {
@@ -116,88 +117,29 @@ public class InstanceController {
         private String color;
         private String baseImage;
 
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public Long getUserId() {
-            return userId;
-        }
-
-        public void setUserId(Long userId) {
-            this.userId = userId;
-        }
-
-        public Long getCpuId() {
-            return cpuId;
-        }
-
-        public void setCpuId(Long cpuId) {
-            this.cpuId = cpuId;
-        }
-
-        public Long getRamId() {
-            return ramId;
-        }
-
-        public void setRamId(Long ramId) {
-            this.ramId = ramId;
-        }
-
-        public Long getStorageId() {
-            return storageId;
-        }
-
-        public void setStorageId(Long storageId) {
-            this.storageId = storageId;
-        }
-
-        public Long getRegionId() {
-            return regionId;
-        }
-
-        public void setRegionId(Long regionId) {
-            this.regionId = regionId;
-        }
-
-        public Long getDatacenterId() {
-            return datacenterId;
-        }
-
-        public void setDatacenterId(Long datacenterId) {
-            this.datacenterId = datacenterId;
-        }
-
-        public String getColor() {
-            return color;
-        }
-
-        public void setColor(String color) {
-            this.color = color;
-        }
-
-        public String getBaseImage() {
-            return baseImage;
-        }
-
-        public void setBaseImage(String baseImage) {
-            this.baseImage = baseImage;
-        }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public Long getUserId() { return userId; }
+        public void setUserId(Long userId) { this.userId = userId; }
+        public Long getCpuId() { return cpuId; }
+        public void setCpuId(Long cpuId) { this.cpuId = cpuId; }
+        public Long getRamId() { return ramId; }
+        public void setRamId(Long ramId) { this.ramId = ramId; }
+        public Long getStorageId() { return storageId; }
+        public void setStorageId(Long storageId) { this.storageId = storageId; }
+        public Long getRegionId() { return regionId; }
+        public void setRegionId(Long regionId) { this.regionId = regionId; }
+        public Long getDatacenterId() { return datacenterId; }
+        public void setDatacenterId(Long datacenterId) { this.datacenterId = datacenterId; }
+        public String getColor() { return color; }
+        public void setColor(String color) { this.color = color; }
+        public String getBaseImage() { return baseImage; }
+        public void setBaseImage(String baseImage) { this.baseImage = baseImage; }
     }
 
     public static class UpdateStateRequest {
         private String state;
-
-        public String getState() {
-            return state;
-        }
-
-        public void setState(String state) {
-            this.state = state;
-        }
+        public String getState() { return state; }
+        public void setState(String state) { this.state = state; }
     }
 }

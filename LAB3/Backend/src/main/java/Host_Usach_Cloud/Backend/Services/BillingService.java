@@ -1,8 +1,13 @@
 package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.*;
+import Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument;
+import Host_Usach_Cloud.Backend.Mongo.Repository.InstanceMongoRepository;
 import Host_Usach_Cloud.Backend.Repository.*;
 import Host_Usach_Cloud.Backend.Services.DTO.BillingDistanceResult;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -15,20 +20,23 @@ import java.math.RoundingMode;
 public class BillingService {
 
     private final JdbcTemplate jdbcTemplate;
-    private final InstanceRepository instanceRepository;
+    private final InstanceMongoRepository instanceMongoRepository;
+    private final MongoTemplate mongoTemplate;
     private final CpuRepository cpuRepository;
     private final RamRepository ramRepository;
     private final StorageRepository storageRepository;
     private final DatacenterRepository datacenterRepository;
 
     public BillingService(JdbcTemplate jdbcTemplate,
-                          InstanceRepository instanceRepository,
+                          InstanceMongoRepository instanceMongoRepository,
+                          MongoTemplate mongoTemplate,
                           CpuRepository cpuRepository,
                           RamRepository ramRepository,
                           StorageRepository storageRepository,
                           DatacenterRepository datacenterRepository) {
         this.jdbcTemplate = jdbcTemplate;
-        this.instanceRepository = instanceRepository;
+        this.instanceMongoRepository = instanceMongoRepository;
+        this.mongoTemplate = mongoTemplate;
         this.cpuRepository = cpuRepository;
         this.ramRepository = ramRepository;
         this.storageRepository = storageRepository;
@@ -40,21 +48,25 @@ public class BillingService {
         jdbcTemplate.update(sql, userId);
     }
 
-    public BillingDistanceResult calculateDistanceBilling(Long instanceId, double userLat, double userLon) {
-        Instance instance = instanceRepository.findById(instanceId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Instance not found: " + instanceId));
-        CPU cpu = cpuRepository.findById(instance.getCpu_id())
+    public BillingDistanceResult calculateDistanceBilling(Long numericId, double userLat, double userLon) {
+        InstanceDocument instance = mongoTemplate.findOne(
+                Query.query(Criteria.where("numericId").is(numericId)),
+                InstanceDocument.class, "instances");
+        if (instance == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Instance not found: " + numericId);
+        }
+        CPU cpu = cpuRepository.findById(instance.getCpuId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CPU not found"));
-        Ram ram = ramRepository.findById(instance.getRam_id())
+        Ram ram = ramRepository.findById(instance.getRamId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "RAM not found"));
-        Storage storage = storageRepository.findById(instance.getStorage_id())
+        Storage storage = storageRepository.findById(instance.getStorageId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Storage not found"));
-        Datacenter datacenter = datacenterRepository.findById(instance.getDatacenter_id())
+        Datacenter datacenter = datacenterRepository.findById(instance.getDatacenterId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Datacenter not found"));
 
         double totalCostPh = cpu.getCost_ph() + ram.getCost_ph() + storage.getCost_ph();
-        double activeHours = instance.getActive_hours() != null
-                ? instance.getActive_hours().toSeconds() / 3600.0
+        double activeHours = instance.getActiveHoursSeconds() != null
+                ? instance.getActiveHoursSeconds() / 3600.0
                 : 0.0;
         BigDecimal baseCost = BigDecimal.valueOf(totalCostPh * activeHours);
 
@@ -75,7 +87,6 @@ public class BillingService {
                 total
         );
     }
-
 
     public static double surchargeRate(double distanceKm) {
         if (distanceKm <= 200) return 0.00;

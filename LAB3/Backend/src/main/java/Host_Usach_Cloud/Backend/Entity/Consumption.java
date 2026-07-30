@@ -20,6 +20,10 @@ public class Consumption {
 
     private Double Storage_stats;
 
+    /**
+     * FK a {@link Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument#getNumericId()}.
+     * Bigint para coincidir con la columna Postgres.Instance_id (BIGINT).
+     */
     private Long Instance_id;
 
     private LocalDateTime Created_at;

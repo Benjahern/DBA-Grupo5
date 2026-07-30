@@ -49,7 +49,11 @@ watch(
 const stateValue = computed(() => String(localState.value || '').toLowerCase());
 const isRunning = computed(() => stateValue.value === 'running');
 const isPaused = computed(() => stateValue.value === 'stopped');
-const instanceId = computed(() => props.instance?.id ?? props.instance?.instance_id);
+const instanceId = computed(() => {
+    const raw = props.instance;
+    if (!raw) return null;
+    return raw.numericId ?? raw.numeric_id ?? raw.instance_id ?? raw.id;
+});
 const badgeVariant = computed(() => statusToBadgeVariant(localState.value));
 
 const handleUpdated = (nextState) => {

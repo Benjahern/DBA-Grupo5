@@ -259,27 +259,24 @@ const fetchCurrentUser = async () => {
 const toViewInstance = (raw) => {
     const rawHours = raw?.active_hours ?? raw?.Active_hours;
     let computedHours = parseDurationToHours(rawHours);
-    /*
-    const currentState = String(raw?.state ?? raw?.State ?? '').toUpperCase();
-    if (computedHours === 0 && (currentState === 'RUNNING' || currentState === 'ACTIVO')) {
-        computedHours = 1; 
-    }
-    */
-    const regId = raw?.region_id ?? raw?.Region_id;
+
+    const regId = raw?.region_id ?? raw?.Region_id ?? raw?.regionId;
     const foundRegion = regionsCatalog.value.find(r => r.region_id == regId || r.Region_id == regId || r.id == regId);
     const regionNameStr = foundRegion ? (foundRegion.Name || foundRegion.name) : `Region #${regId || 'Desconocida'}`;
 
+    const numericId = raw?.numericId ?? raw?.numeric_id ?? raw?.instance_id ?? raw?.id;
+
     return {
-        id: raw?.instance_id ?? raw?.Instance_id ?? raw?.id,
+        id: numericId,
         name: raw?.name ?? raw?.Name ?? 'Servidor sin nombre',
         regionName: regionNameStr,
-        ip: raw?.ip_address ?? raw?.Ip_address ?? 'Pendiente',
+        ip: raw?.ip_address ?? raw?.Ip_address ?? raw?.ipAddress ?? 'Pendiente',
         state: raw?.state ?? raw?.State ?? 'Unknown',
         hoursActive: computedHours,
-        cpu: parseHardware(raw?.cpu_id ?? raw?.Cpu_id, cpusCatalog.value, 'cpu_id', 'Cpu_id'),
-        ram: parseHardware(raw?.ram_id ?? raw?.Ram_id, ramsCatalog.value, 'ram_id', 'Ram_id'),
-        storage: parseHardware(raw?.storage_id ?? raw?.Storage_id, storagesCatalog.value, 'storage_id', 'Storage_id'),
-        billing: distanceBilling.value[raw.instance_id] || null,
+        cpu: parseHardware(raw?.cpu_id ?? raw?.Cpu_id ?? raw?.cpuId, cpusCatalog.value, 'cpu_id', 'Cpu_id'),
+        ram: parseHardware(raw?.ram_id ?? raw?.Ram_id ?? raw?.ramId, ramsCatalog.value, 'ram_id', 'Ram_id'),
+        storage: parseHardware(raw?.storage_id ?? raw?.Storage_id ?? raw?.storageId, storagesCatalog.value, 'storage_id', 'Storage_id'),
+        billing: distanceBilling.value[numericId] || null,
     };
 };
 

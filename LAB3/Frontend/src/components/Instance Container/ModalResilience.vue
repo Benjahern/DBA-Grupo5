@@ -12,19 +12,25 @@
                 </p>
 
                 <div class="search-group">
-                    <input 
-                        v-model="localInstanceId" 
-                        type="number" 
-                        placeholder="ID de Instancia..." 
+                    <input
+                        v-model="localInstanceId"
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="ID numérico de la instancia (ej. 1, 2, 3)"
                         @keyup.enter="fetchInstancePreview"
                     />
-                    <button 
-                        class="search-btn" 
-                        @click="fetchInstancePreview" 
-                        :disabled="isSearchingInstance || !localInstanceId"
+                    <button
+                        class="search-btn"
+                        @click="fetchInstancePreview"
+                        :disabled="isSearchingInstance || !isValidInstanceId(localInstanceId)"
                     >
                         {{ isSearchingInstance ? 'Buscando...' : 'Buscar Instancia' }}
                     </button>
+                </div>
+
+                <div v-if="localInstanceId && !isValidInstanceId(localInstanceId)" class="alert warning">
+                    El ID debe ser un número entero positivo (mayor o igual a 1).
                 </div>
 
                 <div v-if="instanceErrorMsg" class="alert error">{{ instanceErrorMsg }}</div>
@@ -177,6 +183,12 @@ watch(localInstanceId, () => {
     recErrorMsg.value = '';
 });
 
+watch(() => props.instanceId, (newVal) => {
+    if (newVal && newVal !== localInstanceId.value) {
+        localInstanceId.value = newVal;
+    }
+});
+
 const loadRegions = async () => {
     try {
         const response = await api.get('/api/regions');
@@ -257,23 +269,33 @@ const getStorageInfo = (id) => {
     return match ? `${match.quantity} GB` : `${id}`;
 };
 
+const isValidInstanceId = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && Number.isInteger(n) && n >= 1;
+};
+
 const fetchInstancePreview = async () => {
     if (!localInstanceId.value) return;
+    if (!isValidInstanceId(localInstanceId.value)) {
+        instanceErrorMsg.value = 'El ID "' + localInstanceId.value + '" debe ser un número entero positivo.';
+        return;
+    }
+    const numericId = Number(localInstanceId.value);
 
     isSearchingInstance.value = true;
     instanceErrorMsg.value = '';
     instancePreview.value = null;
-    recommendations.value = []; 
+    recommendations.value = [];
     searched.value = false;
-    isExpanded.value = true; 
+    isExpanded.value = true;
 
     try {
         const response = await api.get(`/api/instances/${localInstanceId.value}`);
         const data = response.data;
-        
+
         if (data) {
             const currentUser = getUser();
-            
+
             if (!currentUser) {
                 instanceErrorMsg.value = 'Debes iniciar sesión para ver esta información.';
                 isSearchingInstance.value = false;
@@ -281,13 +303,13 @@ const fetchInstancePreview = async () => {
             }
 
             const currentUserId = currentUser.User_id || currentUser.Sub;
-            const userRoles = currentUser.Roles || []; 
+            const userRoles = currentUser.Roles || [];
 
-            const isStrictlyUser = userRoles.length === 1 && 
+            const isStrictlyUser = userRoles.length === 1 &&
                 (userRoles[0].toLowerCase() === 'user' || userRoles[0].toLowerCase() === 'usuario');
 
-            const instanceOwner = data.owner || data.user_id || data.User_id; 
-            
+            const instanceOwner = data.owner || data.user_id || data.User_id;
+
             if (isStrictlyUser && String(instanceOwner) !== String(currentUserId)) {
                 instanceErrorMsg.value = 'Acceso denegado: Esta instancia no te pertenece.';
                 isSearchingInstance.value = false;
@@ -300,12 +322,15 @@ const fetchInstancePreview = async () => {
         }
     } catch (error) {
         console.error('Error fetching instance:', error);
+        const backendMsg = error?.response?.data?.error || error?.response?.data?.message;
         if (error.response?.status === 404) {
-            instanceErrorMsg.value = 'La instancia no existe.';
+            instanceErrorMsg.value = 'La instancia con ID ' + localInstanceId.value + ' no existe.';
         } else if (error.response?.status === 403) {
             instanceErrorMsg.value = 'Acceso denegado a esta instancia.';
+        } else if (error.response?.status >= 500) {
+            instanceErrorMsg.value = 'Error del servidor (500). ' + (backendMsg || 'Verificá que el ObjectId sea válido.');
         } else {
-            instanceErrorMsg.value = 'No se pudo encontrar la instancia.';
+            instanceErrorMsg.value = backendMsg || 'No se pudo obtener la instancia.';
         }
     } finally {
         isSearchingInstance.value = false;

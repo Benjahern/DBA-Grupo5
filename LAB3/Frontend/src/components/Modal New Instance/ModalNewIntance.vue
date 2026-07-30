@@ -65,7 +65,7 @@
 						</label>
 					</form>
 					<div class="form-actions">
-						<button type="button" class="btn primary" @click="openConfirm">Confirmar</button>
+						<button type="button" class="btn primary" :disabled="!isFormValid" @click="openConfirm">Confirmar</button>
 						<button type="button" class="btn ghost" @click="handleCancel">Cancelar</button>
 					</div>
 				</div>
@@ -124,6 +124,13 @@ const confirmSummary = computed(() => ({
 		? `${findLabel(storages.value, storageId.value, 'storage_id', 'quantity')} GB`
 		: ''
 }));
+
+const isFormValid = computed(() =>
+	name.value.trim() !== '' &&
+	cpuId.value !== '' &&
+	ramId.value !== '' &&
+	storageId.value !== ''
+);
 
 const fetchOptions = async () => {
 	try {
@@ -202,12 +209,14 @@ const handleConfirm = () => {
 			confirmOpen.value = false;
 			emit('close');
 		})
-		.catch(() => {
+		.catch((err) => {
+			const backendMsg = err?.response?.data?.error;
 			show({
-				message: 'No se pudo crear la instancia.',
+				message: backendMsg ? `No se pudo crear la instancia: ${backendMsg}` : 'No se pudo crear la instancia.',
 				severity: 'error',
-				autoHideMs: 4000
+				autoHideMs: 6000
 			});
+			console.error('POST /api/instances', err);
 		})
 		.finally(() => {
 			isSubmitting.value = false;
@@ -309,6 +318,11 @@ const handleConfirm = () => {
 .btn.primary {
 	background: #2563eb;
 	color: #ffffff;
+}
+
+.btn.primary:disabled {
+	background: #94a3b8;
+	cursor: not-allowed;
 }
 
 </style>

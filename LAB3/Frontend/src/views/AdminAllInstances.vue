@@ -73,21 +73,21 @@ const findLabel = (items, id, valueKey = 'id', labelKey = 'name') => {
 };
 
 const toViewInstance = (raw) => {
-	const cpuId = raw?.cpu ?? raw?.cpu_id ?? raw?.Cpu_id;
-	const ramId = raw?.ram ?? raw?.ram_id ?? raw?.Ram_id;
-	const storageId = raw?.storage ?? raw?.storage_id ?? raw?.Storage_id;
-	const regionId = raw?.region ?? raw?.region_id ?? raw?.Region_id;
+	const cpuId = raw?.cpuId ?? raw?.cpu_id ?? raw?.Cpu_id;
+	const ramId = raw?.ramId ?? raw?.ram_id ?? raw?.Ram_id;
+	const storageId = raw?.storageId ?? raw?.storage_id ?? raw?.Storage_id;
+	const regionId = raw?.regionId ?? raw?.region_id ?? raw?.Region_id;
 
 	return {
-		id: raw?.instance_id ?? raw?.Instance_id ?? raw?.id,
+		id: raw?.numericId ?? raw?.numeric_id ?? raw?.instance_id ?? raw?.id,
 		name: raw?.name ?? raw?.Name ?? '-',
 		region: findLabel(regions.value, regionId, 'region_id', 'name') || regionId || '-',
-		ip: raw?.ip ?? raw?.ip_address ?? raw?.Ip_address ?? '-',
+		ip: raw?.ipAddress ?? raw?.ip_address ?? raw?.Ip_address ?? '-',
 		state: raw?.state ?? raw?.State ?? '-',
 		cpu: (findLabel(cpus.value, cpuId, 'cpu_id', 'quantity') || cpuId || '-') + ' vCPU',
 		ram: (findLabel(rams.value, ramId, 'ram_id', 'quantity') || ramId || '-') + ' GB',
 		storage: (findLabel(storages.value, storageId, 'storage_id', 'quantity') || storageId || '-') + ' GB',
-		userId: raw?.user_id ?? raw?.User_id ?? '-',
+		userId: raw?.userId ?? raw?.user_id ?? raw?.User_id ?? '-',
 	};
 };
 

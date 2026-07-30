@@ -1,18 +1,27 @@
 package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.CPU;
-import Host_Usach_Cloud.Backend.Entity.Instance;
 import Host_Usach_Cloud.Backend.Entity.Ip;
 import Host_Usach_Cloud.Backend.Entity.Ram;
-import Host_Usach_Cloud.Backend.Repository.InstanceRepository;
+import Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument;
+import Host_Usach_Cloud.Backend.Mongo.Exceptions.InstanceNotFoundException;
+import Host_Usach_Cloud.Backend.Mongo.Exceptions.QuotaExceededException;
+import Host_Usach_Cloud.Backend.Mongo.Services.QuotaService;
+import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.StatsCmd;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Statistics;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.bson.types.ObjectId;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import com.github.dockerjava.api.DockerClient;
+import org.springframework.transaction.support.TransactionTemplate;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
@@ -21,6 +30,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Servicio de instancias. La entidad Instance vive ahora en MongoDB.
+ * Postgres conserva: catálogo (CPU/RAM/Storage/Region/Datacenter), pool de IPs,
+ * tickets y métricas (todavía). La cuota (Req 2) la enforce el patrón de
+ * contador en client_quotas; el resto de la lógica que estaba en triggers
+ * (release de IP, active_hours, distance check) se porta a este servicio.
+ *
+ * <p>Los IDs de instancia son <b>numéricos sequential per-user</b> en el campo
+ * {@code numericId} (1, 2, 3...). El ObjectId hex en {@code instanceId} se conserva
+ * como PK interna de Mongo (para FK Postgres) pero ya no se expone al usuario.</p>
+ */
 @Service
 public class InstanceService {
 
@@ -28,139 +48,290 @@ public class InstanceService {
     private final CpuService cpuService;
     private final RamService ramService;
     private final IpService ipService;
-    private final InstanceRepository instanceRepository;
+    private final QuotaService quotaService;
+    private final MongoTemplate mongoTemplate;
+    private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate mongoTxTemplate;
 
-    public InstanceService(DockerClient dockerClient, CpuService cpuService,
-                           RamService ramService, IpService ipService,
-                           InstanceRepository instanceRepository) {
+    public InstanceService(DockerClient dockerClient,
+                           CpuService cpuService,
+                           RamService ramService,
+                           IpService ipService,
+                           QuotaService quotaService,
+                           MongoTemplate mongoTemplate,
+                           JdbcTemplate jdbcTemplate,
+                           org.springframework.data.mongodb.MongoTransactionManager mongoTxManager) {
         this.dockerClient = dockerClient;
         this.cpuService = cpuService;
         this.ramService = ramService;
         this.ipService = ipService;
-        this.instanceRepository = instanceRepository;
+        this.quotaService = quotaService;
+        this.mongoTemplate = mongoTemplate;
+        this.jdbcTemplate = jdbcTemplate;
+        this.mongoTxTemplate = new TransactionTemplate(mongoTxManager);
     }
 
-    //En proceso, me faltan los demas repos (benja h)
-    public Instance createInstance(String name, Long userId, Long cpuId, Long ramId, Long storageId,
-                                          Long regionId, Long datacenterId, String color, String baseImage){
+    public InstanceDocument createInstance(String name, Long userId, Long cpuId, Long ramId, Long storageId,
+                                           Long regionId, Long datacenterId, String color, String baseImage) {
 
-        //Revisamos los recursos antes
+        // (A) Validaciones de catálogo contra Postgres
         CPU cpu = cpuService.getCpuById(cpuId);
         Ram ram = ramService.getRamById(ramId);
+        if (cpu == null) throw new IllegalArgumentException("CPU no existe: " + cpuId);
+        if (ram == null) throw new IllegalArgumentException("RAM no existe: " + ramId);
 
+        // (B) Distance check (PostGIS, ≤ 4300 km) — port del trigger
+        validateDistance(regionId, datacenterId);
+
+        // Generamos el ID antes para poder compensar si algo falla
+        String objectIdHex = new ObjectId().toHexString();
+
+        // (C) numericId per-user: max(existente del user) + 1. Coincide con
+        // BIGSERIAL pre-migración pero particionado por userId, así cada
+        // usuario ve su primera instancia como id=1.
+        Long nextNumericId = mongoTemplate.find(
+                Query.query(Criteria.where("userId").is(userId))
+                        .with(Sort.by(Sort.Direction.DESC, "numericId"))
+                        .limit(1),
+                InstanceDocument.class, "instances"
+        ).stream()
+                .map(InstanceDocument::getNumericId)
+                .filter(java.util.Objects::nonNull)
+                .findFirst().orElse(0L) + 1;
+
+        // (D) Transacción Mongo CORTA: quota + insert instance
+        InstanceDocument doc = InstanceDocument.builder()
+                .instanceId(objectIdHex)
+                .numericId(nextNumericId)
+                .name(name)
+                .state("Running")          // arranca Running; si Docker falla, compensate() lo borra
+                .userId(userId)
+                .cpuId(cpuId)
+                .ramId(ramId)
+                .storageId(storageId)
+                .regionId(regionId)
+                .datacenterId(datacenterId)
+                .containerId(null)
+                .startedAt(LocalDateTime.now())
+                .activeHoursSeconds(0L)
+                .terminated(false)
+                .ipAddress(null)
+                .color(color)
+                .build();
+
+        try {
+            mongoTxTemplate.execute(status -> {
+                quotaService.reserve(userId);
+                mongoTemplate.insert(doc, "instances");
+                return null;
+            });
+        } catch (QuotaExceededException qe) {
+            throw qe;
+        } catch (Exception e) {
+            throw new RuntimeException("Error reservando cuota/insertando instancia: " + e.getMessage(), e);
+        }
+
+        // (E) Docker provisioning + reserva de IP en Postgres (FUERA de la tx Mongo)
         CreateContainerResponse container = null;
-
-        /**
-         * Esta parte es la complicada, tenemos que traducir nuestros componentes al container de docker
-         *
-         */
-        try{
-
-            //traduccion de quantity a ram de docker (la l es por el numero long)
+        String containerId = null;
+        String ipAddress = null;
+        try {
             long ramDocker = ram.getQuantity() * 1024L * 1024L * 1024L;
-            //Ahora lo mismo pero para cpu
             long cpuDocker = cpu.getQuantity() * 1000000000L;
-
-            //configuracion del contenedor
             HostConfig hostConfig = HostConfig.newHostConfig().withMemory(ramDocker).withNanoCPUs(cpuDocker);
 
-            // Recomendado por la ia para identificar
-            String containerName = name + "-" + userId + "-" + UUID.randomUUID().toString().substring(0,5);
-
-            // Asegurar que la imagen existe (pull si no existe)
+            String containerName = name + "-" + userId + "-" + UUID.randomUUID().toString().substring(0, 5);
             ensureImageExists(baseImage);
 
-            // Mandamos el mensaje a docker
-            // IMPORTANTE: Un contenedor ubuntu:latest por defecto corre un shell y sale inmediatamente si no se le pasa un comando continuo
-            // Usaremos "tail -f /dev/null" o "sleep infinity" para que se quede corriendo
             container = dockerClient.createContainerCmd(baseImage)
                     .withName(containerName)
                     .withHostConfig(hostConfig)
                     .withCmd("tail", "-f", "/dev/null")
                     .exec();
+            containerId = container.getId();
 
-            //Iniciamos el contenedor
-            dockerClient.startContainerCmd(container.getId()).exec();
+            dockerClient.startContainerCmd(containerId).exec();
+            final String resolvedIp = resolveContainerIp(containerId);
+            ipAddress = resolvedIp;
 
-            String ipAddress = resolveContainerIp(container.getId());
+            // Asegurar IP en BD y marcarla Assigned
+            Ip ip = ipService.findByAddress(resolvedIp)
+                    .orElseGet(() -> ipService.create(resolvedIp));
+            if (!ip.isAssigned()) {
+                jdbcTemplate.update("UPDATE \"Ip\" SET \"Assigned\" = TRUE WHERE \"Ip_id\" = ?", ip.getIp_id());
+            }
 
-            // Asegurar que la IP existe en la BD (crear si no existe)
-            ipService.findByAddress(ipAddress)
-                    .orElseGet(() -> ipService.create(ipAddress));
+            // Crear Ticket inicial con FK al numericId (Postgres.Instance_id ahora es BIGINT)
+            jdbcTemplate.update(
+                    "INSERT INTO \"Ticket\" (\"Status\", \"Description\", \"Instance_id\", \"User_id\") " +
+                            "VALUES ('Open', ?, ?, ?)",
+                    "Instancia provisionada",
+                    nextNumericId,
+                    userId);
 
-            Instance newInstance = Instance.builder()
-                    .Name(name)
-                    .Ram_id(ramId)
-                    .Cpu_id(cpuId)
-                    .Started_at(LocalDateTime.now())
-                    .Storage_id(storageId)
-                    .Terminated(false)
-                    .State("Running")
-                    .User_id(userId)
-                    .Region_id(regionId)
-                    .Datacenter_id(datacenterId)
-                    .Container_id(container.getId())
-                    .Active_hours(Duration.ZERO)
-                    .Ip_address(ipAddress)
-                    .Color(color)
-                    .build();
+            // Actualizar doc Mongo con containerId, ipAddress y dejar state Running
+            mongoTemplate.updateFirst(
+                    Query.query(Criteria.where("_id").is(objectIdHex)),
+                    new Update()
+                            .set("containerId", containerId)
+                            .set("ipAddress", ipAddress)
+                            .set("state", "Running")
+                            .set("startedAt", LocalDateTime.now()),
+                    "instances");
 
-            // Crear Instance primero para obtener el Instance_id
-            instanceRepository.save(newInstance);
+            return findByNumericId(nextNumericId);
 
-            // Llamar stored procedure para asignar IP y crear Ticket
-            instanceRepository.provisionInstance(ipAddress, newInstance.getInstance_id());
-
-            return newInstance;
-        } catch ( Exception e){
-            if (container != null && container.getId() != null) {
+        } catch (Exception e) {
+            // Compensación: rollback Docker + liberar IP + borrar doc Mongo + liberar cuota
+            System.err.println("Fallo en provisioning — ejecutando compensación: " + e.getMessage());
+            if (containerId != null) {
                 try {
-                    System.err.println("Haciendo rollback en Docker... eliminando contenedor: " + container.getId());
-                    dockerClient.removeContainerCmd(container.getId()).withForce(true).exec();
-                } catch (Exception dockerEx) {
-                    System.err.println("CRÍTICO: No se pudo eliminar el contenedor huérfano " + container.getId());
+                    dockerClient.removeContainerCmd(containerId).withForce(true).exec();
+                } catch (Exception dex) {
+                    System.err.println("CRÍTICO: no se pudo eliminar contenedor huérfano " + containerId);
                 }
             }
+            if (ipAddress != null) {
+                try {
+                    jdbcTemplate.update(
+                            "UPDATE \"Ip\" SET \"Assigned\" = FALSE WHERE \"Ip_address\" = ? AND \"Assigned\" = TRUE",
+                            ipAddress);
+                } catch (Exception ignored) {}
+            }
+            try {
+                mongoTxTemplate.execute(status -> {
+                    mongoTemplate.remove(
+                            Query.query(Criteria.where("_id").is(objectIdHex)),
+                            "instances");
+                    quotaService.release(userId);
+                    return null;
+                });
+            } catch (Exception ce) {
+                System.err.println("CRÍTICO: compensación Mongo falló: " + ce.getMessage());
+            }
             throw new RuntimeException("Error en la instancia en Host Usach Cloud: " + e.getMessage(), e);
-
-
-
         }
-
-
-
     }
 
-    public Instance getInstanceById(Long instanceId) {
-        return instanceRepository.findById(instanceId)
-                .orElseThrow(() -> new IllegalArgumentException("El Id de la instancia no existe"));
-    }
-
-    public List<Instance> getAllInstances() {
-        return instanceRepository.findAll();
-    }
-
-    public List<Instance> getInstancesByUserId(Long userId) {
-        return instanceRepository.findAllByUserId(userId);
-    }
-
-    public List<Instance> getInstancesByState(String state) {
-        return instanceRepository.findAllByState(state);
-    }
-
-    public Instance updateInstance(Instance instance) {
-        boolean updated = instanceRepository.update(instance);
-        if (!updated) {
-            throw new IllegalArgumentException("El Id de la instancia no existe");
+    private void validateDistance(Long regionId, Long datacenterId) {
+        if (datacenterId == null) return;
+        Double km = jdbcTemplate.queryForObject(
+                "SELECT ST_Distance(" +
+                        "  ST_SetSRID(ST_MakePoint(d.longitude, d.latitude), 4326)::geography," +
+                        "  ST_Centroid(r.\"Geom\")::geography" +
+                        ") / 1000.0 " +
+                        "FROM \"Datacenter\" d, \"Region\" r " +
+                        "WHERE d.id = ? AND r.\"Region_id\" = ?",
+                Double.class, datacenterId, regionId);
+        if (km == null) {
+            throw new IllegalArgumentException("No se pudo calcular la distancia datacenter↔region");
         }
+        if (km > 4300.0) {
+            throw new IllegalArgumentException(
+                    "Soberanía de datos: datacenter a " + Math.round(km) + " km de la región (>4300 km)");
+        }
+    }
+
+    public InstanceDocument getInstanceById(Long numericId) {
+        return findByNumericId(numericId);
+    }
+
+    public List<InstanceDocument> getAllInstances() {
+        return mongoTemplate.findAll(InstanceDocument.class, "instances");
+    }
+
+    public List<InstanceDocument> getInstancesByUserId(Long userId) {
+        return mongoTemplate.find(
+                Query.query(Criteria.where("userId").is(userId)),
+                InstanceDocument.class, "instances");
+    }
+
+    public List<InstanceDocument> getInstancesByState(String state) {
+        return mongoTemplate.find(
+                Query.query(Criteria.where("state").is(state)),
+                InstanceDocument.class, "instances");
+    }
+
+    public InstanceDocument updateInstance(InstanceDocument instance) {
+        mongoTemplate.save(instance, "instances");
         return instance;
     }
 
-    public void deleteInstance(Long instanceId) {
-        boolean deleted = instanceRepository.deleteById(instanceId);
-        if (!deleted) {
-            throw new IllegalArgumentException("El Id de la instancia no existe");
+    public void deleteInstance(Long numericId) {
+        InstanceDocument inst = findByNumericId(numericId);
+        if ("Running".equals(inst.getState()) || "Stopped".equals(inst.getState())) {
+            throw new IllegalArgumentException("Termina la instancia antes de borrarla");
         }
+        try {
+            containerCleanup(inst);
+        } catch (Exception ignored) {}
+        mongoTxTemplate.execute(status -> {
+            mongoTemplate.remove(Query.query(Criteria.where("numericId").is(numericId)), "instances");
+            quotaService.release(inst.getUserId());
+            return null;
+        });
+    }
+
+    public InstanceDocument updateStateByid(Long numericId, String newState) {
+        InstanceDocument inst = findByNumericId(numericId);
+        String oldState = inst.getState();
+        if (newState.equals(oldState)) return inst;
+
+        // (1) Acción Docker primero
+        if ("Stopped".equals(newState) && "Running".equals(oldState)) {
+            dockerClient.stopContainerCmd(inst.getContainerId()).exec();
+        } else if ("Running".equals(newState) && "Stopped".equals(oldState)) {
+            dockerClient.startContainerCmd(inst.getContainerId()).exec();
+        } else if ("Terminated".equals(newState)) {
+            containerCleanup(inst);
+        } else {
+            throw new IllegalArgumentException("Transición no permitida: " + oldState + " -> " + newState);
+        }
+
+        // (2) Update Mongo con condición sobre estado anterior (evita race)
+        Update u = new Update().set("state", newState);
+        if ("Running".equals(newState) && !"Running".equals(oldState)) {
+            u.set("startedAt", LocalDateTime.now());
+        }
+        if ("Running".equals(oldState) && !"Running".equals(newState)) {
+            long delta = inst.getStartedAt() != null
+                    ? Duration.between(inst.getStartedAt(), LocalDateTime.now()).getSeconds()
+                    : 0L;
+            u.inc("activeHoursSeconds", delta);
+            u.set("startedAt", null);
+        }
+        if ("Terminated".equals(newState)) {
+            u.set("terminated", true);
+            u.set("ipAddress", null);
+        }
+
+        // (3) Si termina, liberar IP en Postgres y decrementar cuota (en tx Mongo)
+        if ("Terminated".equals(newState)) {
+            final String oldIp = inst.getIpAddress();
+            if (oldIp != null) {
+                try {
+                    jdbcTemplate.update(
+                            "UPDATE \"Ip\" SET \"Assigned\" = FALSE WHERE \"Ip_address\" = ? AND \"Assigned\" = TRUE",
+                            oldIp);
+                } catch (Exception e) {
+                    System.err.println("Aviso: no se pudo liberar IP " + oldIp + ": " + e.getMessage());
+                }
+            }
+            final Long userId = inst.getUserId();
+            mongoTxTemplate.execute(status -> {
+                mongoTemplate.updateFirst(
+                        Query.query(Criteria.where("numericId").is(numericId).and("state").is(oldState)),
+                        u, "instances");
+                quotaService.release(userId);
+                return null;
+            });
+        } else {
+            mongoTemplate.updateFirst(
+                    Query.query(Criteria.where("numericId").is(numericId).and("state").is(oldState)),
+                    u, "instances");
+        }
+
+        return findByNumericId(numericId);
     }
 
     public Flux<Statistics> getContainerStatsReactive(String containerId) {
@@ -174,64 +345,25 @@ public class InstanceService {
             };
             statsCmd.exec(callback);
             sink.onCancel(() -> {
-                try {
-                    callback.close();
-                    statsCmd.close();
-                } catch (Exception ignored) {}
+                try { callback.close(); statsCmd.close(); } catch (Exception ignored) {}
             });
         });
     }
 
-    // Solicitado por enunciado
-    public Instance updateStateByid(Long InstanceId, String State) {
+    private InstanceDocument findByNumericId(Long numericId) {
+        InstanceDocument inst = mongoTemplate.findOne(
+                Query.query(Criteria.where("numericId").is(numericId)),
+                InstanceDocument.class, "instances");
+        if (inst == null) throw new InstanceNotFoundException("Instancia no existe: " + numericId);
+        return inst;
+    }
 
-        Instance instance = instanceRepository.findById(InstanceId)
-            .orElseThrow(() -> new IllegalArgumentException("El Id de la instancia no existe"));
-
-        if (State.equals("Stopped") && instance.getState().equals("Running")) {
-            // Parar el contenedor en Docker
-            dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
-
-            // Actualizar el estado. 
-            // El trigger sumará el tiempo a Active_hours y pondrá Started_at = null
-            instance.setState("Stopped");
-
-        } else if (State.equals("Running") && instance.getState().equals("Stopped")) {
-            // Iniciar el contenedor en Docker
-            dockerClient.startContainerCmd(instance.getContainer_id()).exec();
-
-            // Actualizar el estado. 
-            // El trigger pondrá automáticamente Started_at = NOW()
-            instance.setState("Running");
-
-        } else if (State.equals("Terminated")) {
-            // Terminar el contenedor en Docker y eliminarlo
-            try {
-                dockerClient.stopContainerCmd(instance.getContainer_id()).exec();
-            } catch (Exception e) {
-                // If it is already stopped, docker normally throws NotModifiedException.
-                System.out.println("Contenedor ya estaba detenido o no se pudo detener: " + e.getMessage());
-            }
-            try {
-                dockerClient.removeContainerCmd(instance.getContainer_id()).withForce(true).exec();
-            } catch (Exception e) {
-                // If container doesn't exist (already deleted), continue
-                System.out.println("Contenedor no existe o ya fue eliminado: " + e.getMessage());
-            }
-
-            // Actualizar el estado y marcar como terminado.
-            // El trigger liberará la IP, sumará el tiempo final a Active_hours y limpiará Started_at
-            instance.setState("Terminated");
-            instance.setTerminated(true);
-
-        } else {
-            throw new IllegalArgumentException("Estado no válido o transición no permitida");
-        }
-
-  
-        instanceRepository.update(instance);
-
-        return instance;
+    private void containerCleanup(InstanceDocument inst) {
+        if (inst.getContainerId() == null) return;
+        try { dockerClient.stopContainerCmd(inst.getContainerId()).exec(); }
+        catch (Exception e) { System.out.println("Stop noop: " + e.getMessage()); }
+        try { dockerClient.removeContainerCmd(inst.getContainerId()).withForce(true).exec(); }
+        catch (Exception e) { System.out.println("Remove noop: " + e.getMessage()); }
     }
 
     private String resolveContainerIp(String containerId) {
@@ -241,24 +373,13 @@ public class InstanceService {
                 for (Map.Entry<String, com.github.dockerjava.api.model.ContainerNetwork> entry
                         : inspect.getNetworkSettings().getNetworks().entrySet()) {
                     String ip = entry.getValue().getIpAddress();
-                    if (ip != null && !ip.isBlank()) {
-                        return ip;
-                    }
+                    if (ip != null && !ip.isBlank()) return ip;
                 }
             }
             String legacyIp = inspect.getNetworkSettings() != null ? inspect.getNetworkSettings().getIpAddress() : null;
-            if (legacyIp != null && !legacyIp.isBlank()) {
-                return legacyIp;
-            }
-
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+            if (legacyIp != null && !legacyIp.isBlank()) return legacyIp;
+            try { Thread.sleep(200); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
         }
-
         return null;
     }
 
@@ -271,4 +392,3 @@ public class InstanceService {
         }
     }
 }
-
