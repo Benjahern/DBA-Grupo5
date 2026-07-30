@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
 
@@ -16,7 +17,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document("instances")
-@CompoundIndex(name = "user_state_idx", def = "{'userId': 1, 'state': 1}")
+@CompoundIndex(name = "user_state_v2_idx", def = "{'userId': 1, 'State': 1}")
 @CompoundIndex(name = "user_numeric_idx", def = "{'userId': 1, 'numericId': 1}")
 public class InstanceDocument {
 
@@ -38,6 +39,7 @@ public class InstanceDocument {
     private String name;
 
     @Indexed
+    @Field("State")
     private String state;
 
     private Long cpuId;
@@ -48,9 +50,11 @@ public class InstanceDocument {
 
     private String containerId;
 
+    @Field("Started_at")
     private LocalDateTime startedAt;
 
-    private Long activeHoursSeconds;
+    @Field("Active_hours")
+    private Double activeHours;
 
     private boolean terminated;
 
@@ -80,6 +84,6 @@ public class InstanceDocument {
     public String getIp_address() { return ipAddress; }
     public String getContainer_id() { return containerId; }
     public Double getActive_hours() {
-        return activeHoursSeconds != null ? activeHoursSeconds / 3600.0 : null;
+        return activeHours;
     }
 }

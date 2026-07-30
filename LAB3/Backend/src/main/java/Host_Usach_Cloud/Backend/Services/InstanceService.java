@@ -13,9 +13,13 @@ import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.StatsCmd;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Statistics;
+import com.mongodb.client.result.UpdateResult;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
+import org.springframework.data.mongodb.core.aggregation.AggregationUpdate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -24,8 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import reactor.core.publisher.Flux;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -113,7 +117,7 @@ public class InstanceService {
                 .datacenterId(datacenterId)
                 .containerId(null)
                 .startedAt(LocalDateTime.now())
-                .activeHoursSeconds(0L)
+                .activeHours(0.0)
                 .terminated(false)
                 .ipAddress(null)
                 .color(color)
@@ -170,14 +174,17 @@ public class InstanceService {
                     userId);
 
             // Actualizar doc Mongo con containerId, ipAddress y dejar state Running
+            // Usamos los nombres BSON directamente (State, Started_at) para no
+            // depender de QueryMapper translate de Update (que varía entre versiones
+            // de Spring Data). Criteria sí se traduce al pasar InstanceDocument.class.
             mongoTemplate.updateFirst(
                     Query.query(Criteria.where("_id").is(objectIdHex)),
                     new Update()
                             .set("containerId", containerId)
                             .set("ipAddress", ipAddress)
-                            .set("state", "Running")
-                            .set("startedAt", LocalDateTime.now()),
-                    "instances");
+                            .set("State", "Running")
+                            .set("Started_at", LocalDateTime.now()),
+                    InstanceDocument.class, "instances");
 
             return findByNumericId(nextNumericId);
 
@@ -251,6 +258,8 @@ public class InstanceService {
                 Query.query(Criteria.where("state").is(state)),
                 InstanceDocument.class, "instances");
     }
+    // Nota: pasar InstanceDocument.class es necesario para que QueryMapper aplique
+    // el @Field("State") y consulte el campo BSON renombrado.
 
     public InstanceDocument updateInstance(InstanceDocument instance) {
         mongoTemplate.save(instance, "instances");
@@ -288,22 +297,53 @@ public class InstanceService {
             throw new IllegalArgumentException("Transición no permitida: " + oldState + " -> " + newState);
         }
 
-        // (2) Update Mongo con condición sobre estado anterior (evita race)
-        Update u = new Update().set("state", newState);
-        if ("Running".equals(newState) && !"Running".equals(oldState)) {
-            u.set("startedAt", LocalDateTime.now());
-        }
-        if ("Running".equals(oldState) && !"Running".equals(newState)) {
-            long delta = inst.getStartedAt() != null
-                    ? Duration.between(inst.getStartedAt(), LocalDateTime.now()).getSeconds()
-                    : 0L;
-            u.inc("activeHoursSeconds", delta);
-            u.set("startedAt", null);
-        }
+        // (2) Aggregation update pipeline — transición atómica en Mongo.
+        // Acumula Active_hours cuando oldState=Running y newState ∈ {Stopped, Terminated},
+        // refresca Started_at cuando newState=Running desde Stopped/Terminated, lo
+        // resetea a null cuando Running → Stopped/Terminated. Limpia terminated e
+        // ipAddress en Terminated. Todas las expresiones evalúan contra el documento
+        // de entrada (mismo $set stage), no contra el parcialmente modificado.
+        List<String> stopOrTerminated = Arrays.asList("Stopped", "Terminated");
+
+        Document activeHoursExpr = new Document("$cond", new Document()
+                .append("if", new Document("$and", Arrays.asList(
+                        new Document("$eq", Arrays.asList("$State", "Running")),
+                        new Document("$in", Arrays.asList(newState, stopOrTerminated)),
+                        new Document("$ne", Arrays.asList("$Started_at", null)))))
+                .append("then", new Document("$add", Arrays.asList(
+                        new Document("$ifNull", Arrays.asList("$Active_hours", 0.0)),
+                        new Document("$divide", Arrays.asList(
+                                new Document("$subtract", Arrays.asList("$$NOW", "$Started_at")),
+                                3600000.0)))))
+                .append("else", new Document("$ifNull", Arrays.asList("$Active_hours", 0.0))));
+
+        Document startedAtExpr = new Document("$switch", new Document()
+                .append("branches", Arrays.asList(
+                        new Document("case", new Document("$and", Arrays.asList(
+                                new Document("$in", Arrays.asList("$State", stopOrTerminated)),
+                                new Document("$eq", Arrays.asList(newState, "Running")))))
+                                .append("then", "$$NOW"),
+                        new Document("case", new Document("$and", Arrays.asList(
+                                new Document("$eq", Arrays.asList("$State", "Running")),
+                                new Document("$in", Arrays.asList(newState, stopOrTerminated)))))
+                                .append("then", null)))
+                .append("default", "$Started_at"));
+
+        Document setStage = new Document()
+                .append("Active_hours", activeHoursExpr)
+                .append("Started_at", startedAtExpr)
+                .append("State", newState);
+
         if ("Terminated".equals(newState)) {
-            u.set("terminated", true);
-            u.set("ipAddress", null);
+            setStage.append("terminated", true).append("ipAddress", null);
         }
+
+        AggregationUpdate pipeline = AggregationUpdate.from(
+                List.<AggregationOperation>of(ctx -> new Document("$set", setStage)));
+
+        // Compare-and-set sobre el estado anterior (Criteria.where("state") se mapea
+        // a {State: oldState} vía QueryMapper gracias a InstanceDocument.class).
+        Query cas = Query.query(Criteria.where("numericId").is(numericId).and("state").is(oldState));
 
         // (3) Si termina, liberar IP en Postgres y decrementar cuota (en tx Mongo)
         if ("Terminated".equals(newState)) {
@@ -318,17 +358,19 @@ public class InstanceService {
                 }
             }
             final Long userId = inst.getUserId();
-            mongoTxTemplate.execute(status -> {
-                mongoTemplate.updateFirst(
-                        Query.query(Criteria.where("numericId").is(numericId).and("state").is(oldState)),
-                        u, "instances");
+            UpdateResult res = mongoTxTemplate.execute(status -> {
+                UpdateResult r = mongoTemplate.updateFirst(cas, pipeline, InstanceDocument.class, "instances");
                 quotaService.release(userId);
-                return null;
+                return r;
             });
+            if (res == null || res.getMatchedCount() == 0) {
+                throw new IllegalStateException("Transición concurrente sobre instancia " + numericId);
+            }
         } else {
-            mongoTemplate.updateFirst(
-                    Query.query(Criteria.where("numericId").is(numericId).and("state").is(oldState)),
-                    u, "instances");
+            UpdateResult res = mongoTemplate.updateFirst(cas, pipeline, InstanceDocument.class, "instances");
+            if (res.getMatchedCount() == 0) {
+                throw new IllegalStateException("Transición concurrente sobre instancia " + numericId);
+            }
         }
 
         return findByNumericId(numericId);

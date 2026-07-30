@@ -65,8 +65,8 @@ public class BillingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Datacenter not found"));
 
         double totalCostPh = cpu.getCost_ph() + ram.getCost_ph() + storage.getCost_ph();
-        double activeHours = instance.getActiveHoursSeconds() != null
-                ? instance.getActiveHoursSeconds() / 3600.0
+        double activeHours = instance.getActiveHours() != null
+                ? instance.getActiveHours()
                 : 0.0;
         BigDecimal baseCost = BigDecimal.valueOf(totalCostPh * activeHours);
 

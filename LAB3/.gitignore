@@ -38,7 +38,7 @@ out/
 .env
 ### CLAUDE ###
 CLAUDE.md
-
+.claude
 
 # Logs
 logs

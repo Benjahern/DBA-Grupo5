@@ -1,4 +1,7 @@
 -- Los índices sobre "Instance" fueron removidos: la entidad vive en MongoDB.
--- Los índices equivalentes ahora viven en Mongo (auto-index-creation + CompoundIndex
--- en InstanceDocument: {userId,state} y @Indexed en state, userId).
+-- Los índices equivalentes ahora viven en Mongo (auto-index-creation + @CompoundIndex
+-- en InstanceDocument: {userId,State} y @Indexed en State, userId).
 -- El servicio MonitoringService ahora hace findByState("Running") usando esos índices.
+-- La acumulación de Active_hours (antes trg_calculate_active_hours) corre ahora como
+-- aggregation update pipeline dentro de InstanceService.updateStateByid, ejecutando
+-- la transición Running ↔ Stopped/Terminated de forma atómica en el servidor.

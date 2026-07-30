@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -32,15 +33,85 @@ public class MongoSchemaInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         MongoDatabase db = mongoTemplate.getDb();
+        migrateInstanceFields(db);
+        dropStaleIndexes(db);
         ensureInstancesCollection(db);
         ensureClientQuotasCollection(db);
         backfillNumericIds();
     }
 
     /**
+     * Migración idempotente de documentos pre-existentes al esquema
+     * renombrado (state→State, startedAt→Started_at, activeHoursSeconds→Active_hours).
+     * Filtra por {state: {$exists: true}} — un documento ya migrado no
+     * tiene el campo viejo, así que el filtro no matchea y el updateMany
+     * es un no-op en arranques posteriores.
+     *
+     * <p>Debe correr ANTES de aplicar el validator estricto, porque el
+     * validator viejo aún requiere los campos con nombres antiguos. Se
+     * relaja temporalmente con collMod → validationAction:warn.</p>
+     */
+    private void migrateInstanceFields(MongoDatabase db) {
+        try {
+            // 1) Relajar validator para que el updateMany no falle contra el schema viejo
+            db.runCommand(BsonDocument.parse(new Document("collMod", "instances")
+                    .append("validationAction", "warn")
+                    .append("validationLevel", "moderate")
+                    .toJson()));
+
+            // 2) updateMany con pipeline que renombra + convierte unidades + borra
+            db.getCollection("instances").updateMany(
+                    new Document("state", new Document("$exists", true)),
+                    Arrays.asList(
+                            new Document("$set", new Document()
+                                    .append("State", "$state")
+                                    .append("Started_at", "$startedAt")
+                                    .append("Active_hours", new Document("$divide", Arrays.asList(
+                                            new Document("$toDouble", new Document("$ifNull",
+                                                    Arrays.asList("$activeHoursSeconds", 0L))),
+                                            3600.0)))),
+                            new Document("$unset", Arrays.asList("state", "startedAt", "activeHoursSeconds"))
+                    )
+            );
+
+            long legacy = db.getCollection("instances")
+                    .countDocuments(new Document("state", new Document("$exists", true)));
+            if (legacy > 0) {
+                log.warn("Mongo: la migración instanceFields no vació el filtro legacy ({} docs).", legacy);
+            } else {
+                log.info("Mongo: migración instanceFields aplicada (state→State, startedAt→Started_at, activeHoursSeconds/3600→Active_hours).");
+            }
+        } catch (Exception e) {
+            log.warn("Mongo: migración instanceFields falló: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Drop índices del esquema viejo que ya no se referencian desde
+     * InstanceDocument. Reusar el nombre con un key spec distinto lanza
+     * IndexOptionsConflict durante el context refresh — antes de que
+     * cualquier runner pueda borrarlo. Por eso se borra explícitamente.
+     */
+    private void dropStaleIndexes(MongoDatabase db) {
+        dropIndexIfExists(db, "instances", "state_1");
+        dropIndexIfExists(db, "instances", "user_state_idx");
+    }
+
+    private void dropIndexIfExists(MongoDatabase db, String coll, String indexName) {
+        try {
+            db.runCommand(BsonDocument.parse(
+                    new Document("dropIndexes", coll).append("index", indexName).toJson()));
+            log.info("Mongo: índice '{}' dropeado de '{}'.", indexName, coll);
+        } catch (Exception e) {
+            // IndexNotFound (code 27) y NamespaceNotFound (code 26) son esperados en arranque limpio.
+            log.debug("Mongo: dropIndexes '{}'.'{}' no aplicado: {}", coll, indexName, e.getMessage());
+        }
+    }
+
+    /**
      * Backfill idempotente: para instancias que aún no tienen numericId
      * (data vieja de antes del cambio a IDs numéricos), asigna uno
-     * sequential per-user ordenado por {@code startedAt}. Si la instancia
+     * sequential per-user ordenado por {@code Started_at}. Si la instancia
      * ya tiene numericId, no la toca — corre en cada arranque pero es no-op
      * una vez que toda la data está al día.
      */
@@ -61,7 +132,7 @@ public class MongoSchemaInitializer implements ApplicationRunner {
                     mongoTemplate.updateFirst(
                             Query.query(Criteria.where("_id").is(inst.getInstanceId())),
                             new Update().set("numericId", next),
-                            "instances");
+                            InstanceDocument.class, "instances");
                     next++;
                     totalAssigned++;
                 }
@@ -79,12 +150,12 @@ public class MongoSchemaInitializer implements ApplicationRunner {
         Document validator = new Document("$jsonSchema", new Document()
                 .append("bsonType", "object")
                 .append("required", List.of(
-                        "name", "state", "userId",
+                        "name", "State", "userId",
                         "cpuId", "ramId",
-                        "startedAt", "terminated", "activeHoursSeconds"))
+                        "Started_at", "terminated", "Active_hours"))
                 .append("properties", new Document()
                         .append("name", new Document("bsonType", "string").append("minLength", 1))
-                        .append("state", new Document("enum", List.of("Running", "Stopped", "Terminated")))
+                        .append("State", new Document("enum", List.of("Running", "Stopped", "Terminated")))
                         .append("userId", new Document("bsonType", "long"))
                         .append("cpuId", new Document("bsonType", "long"))
                         .append("ramId", new Document("bsonType", "long"))
@@ -92,8 +163,9 @@ public class MongoSchemaInitializer implements ApplicationRunner {
                         .append("regionId", new Document("bsonType", "long"))
                         .append("datacenterId", new Document("bsonType", "long"))
                         .append("containerId", new Document("bsonType", List.of("string", "null")))
-                        .append("startedAt", new Document("bsonType", List.of("date", "null")))
-                        .append("activeHoursSeconds", new Document("bsonType", "long").append("minimum", 0))
+                        .append("Started_at", new Document("bsonType", List.of("date", "null")))
+                        .append("Active_hours", new Document("bsonType", List.of("double", "int", "long"))
+                                .append("minimum", 0))
                         .append("terminated", new Document("bsonType", "bool"))
                         .append("ipAddress", new Document("bsonType", List.of("string", "null")))
                         .append("color", new Document("bsonType", List.of("string", "null")))
