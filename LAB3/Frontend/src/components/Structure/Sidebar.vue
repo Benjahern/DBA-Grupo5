@@ -19,6 +19,7 @@
           <ul v-if="openGroups.admin && !isCollapsed" class="nav-list">
             <li @click="goToAdminInstances">Todas las instancias</li>
             <li @click="goToAdminCost">Todos los costos</li>
+            <li @click="goToBandwidth">Ancho de banda</li>
           </ul>
         </transition>
       </div>
@@ -51,6 +52,9 @@
             <!-- ADMIN -->
             <li v-if="isAdmin" @click="goToAdminCost">
               Todos los costos
+            </li>
+            <li v-if="isAdmin" @click="goToBandwidth">
+              Ancho de banda
             </li>
 
             <!-- USER -->
@@ -223,6 +227,10 @@ const goToRegionsManagement = () => {
 
 const goToDatacentersManagement = () => {
   router.push({ name: 'datacenters-management' });
+};
+
+const goToBandwidth = () => {
+  router.push({ name: 'bandwidth' });
 };
 </script>
 
