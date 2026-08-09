@@ -16,8 +16,9 @@ public class AlertController {
         this.alertService = alertService;
     }
 
+    // El frontend debe conectarse a esta ruta pasando su userId
     @GetMapping(value = "/stream/{userId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<AlertDocument> streamAlerts(@PathVariable Long userId) {
+    public Flux<AlertDocument> streamUserAlerts(@PathVariable Long userId) {
         return alertService.getAlertStreamForUser(userId);
     }
 }

@@ -3,14 +3,16 @@ package Host_Usach_Cloud.Backend.Mongo.Services;
 import Host_Usach_Cloud.Backend.Mongo.Entity.AlertDocument;
 import Host_Usach_Cloud.Backend.Mongo.Entity.BandwidthUsageDocument;
 import Host_Usach_Cloud.Backend.Mongo.Repository.BandwidthUsageRepository;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.bson.Document;
+import org.springframework.data.mongodb.core.query.Criteria;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.messaging.ChangeStreamRequest;
 import org.springframework.data.mongodb.core.messaging.MessageListenerContainer;
-import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,8 +26,8 @@ public class BandwidthAlertListenerService {
     private final BandwidthUsageRepository bandwidthRepository;
     private final AlertService alertService;
 
-    // Umbral de ejemplo: 10 GB en Bytes
-    private static final long BANDWIDTH_THRESHOLD = 10L * 1024 * 1024 * 1024;
+    // Umbral
+    private static final long BANDWIDTH_THRESHOLD = (long) 10 * 1024 * 1024 * 1024;
 
     public BandwidthAlertListenerService(MessageListenerContainer container,
                                          MongoTemplate mongoTemplate,
@@ -62,9 +64,25 @@ public class BandwidthAlertListenerService {
         Long userId = newUsage.getUserId();
         String period = newUsage.getBillingPeriod();
 
+        Aggregation sumAgg = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("userId").is(userId).and("billingPeriod").is(period)),
+                Aggregation.group().sum("totalBytes").as("totalConsumed")
+        );
+
+        AggregationResults<Document> results = mongoTemplate.aggregate(sumAgg, "bandwidth_usage", Document.class);
+        long totalConsumed = 0L;
+
+        Document resultDoc = results.getUniqueMappedResult();
+        if (resultDoc != null && resultDoc.get("totalConsumed") != null) {
+            // 2. Extraemos como Number. Esto evita que la aplicación se caiga
+            // si MongoDB decide devolver un Integer en lugar de un Long.
+            Number total = resultDoc.get("totalConsumed", Number.class);
+            totalConsumed = total.longValue();
+        }
+
         // Obtener la suma total de consumo del cliente en este periodo
         // También puedes reutilizar el BandwidthAggregationService que ya tienes
-        long totalConsumed = bandwidthRepository.findByUserIdAndBillingPeriod(userId, period)
+        totalConsumed = bandwidthRepository.findByUserIdAndBillingPeriod(userId, period)
                 .stream()
                 .mapToLong(BandwidthUsageDocument::getTotalBytes)
                 .sum();
