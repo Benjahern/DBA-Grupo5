@@ -42,10 +42,7 @@ public class BandwidthAggregationService {
         this.mongoTemplate = mongoTemplate;
     }
 
-    // ────────────────────────────────────────────────────────────────────────
     // Pipeline 1: Consumo y costo por cliente y periodo ($group)
-    // ────────────────────────────────────────────────────────────────────────
-
     /**
      * Aggregation Pipeline que calcula el consumo de ancho de banda y el costo
      * asociado por cliente y por periodo de facturación.
@@ -66,19 +63,18 @@ public class BandwidthAggregationService {
     public List<BandwidthCostReport> getConsumptionByClientAndPeriod(String period, Long userId) {
         List<AggregationOperation> pipeline = new ArrayList<>();
 
-        // ── Stage 1: $match ─────────────────────────────────────────────
-        // Filtra por periodo de facturación y opcionalmente por userId
+        // Filtramos por periodo de facturación y opcionalmente por userId
         Criteria matchCriteria = Criteria.where("billingPeriod").is(period);
         if (userId != null) {
             matchCriteria = matchCriteria.and("userId").is(userId);
         }
         pipeline.add(Aggregation.match(matchCriteria));
 
-        // ── Stage 2: $group ─────────────────────────────────────────────
-        // Agrupa por (userId, billingPeriod):
-        //   - Suma bytesIn, bytesOut, totalBytes
-        //   - Cuenta registros
-        //   - Acumula conjunto de instanceId distintos con $addToSet
+        /* Agrupamos por (userId, billingPeriod) según lo pedido:
+           - Suma bytesIn, bytesOut, totalBytes
+           - Cuenta registros
+           - Acumula conjunto de instanceId distintos con $addToSet
+        */
         pipeline.add(Aggregation.group("userId", "billingPeriod")
                 .sum("bytesIn").as("totalBytesIn")
                 .sum("bytesOut").as("totalBytesOut")
@@ -86,23 +82,23 @@ public class BandwidthAggregationService {
                 .count().as("recordCount")
                 .addToSet("instanceId").as("distinctInstances"));
 
-        // ── Stage 3: $addFields ─────────────────────────────────────────
-        // Calcula:
-        //   - totalGb = totalBytes / (1024^3)
-        //   - instanceCount = $size de distinctInstances
-        //   - bandwidthCost = pricing escalonado con $switch:
-        //       0-10 GB   → $0.00/GB (gratis)
-        //       10-100 GB → $0.05/GB (solo la porción que excede 10 GB)
-        //       100-1000  → $0.03/GB (solo la porción que excede 100 GB)
-        //       1000+ GB  → $0.01/GB (solo la porción que excede 1000 GB)
-        //
-        // Fórmula acumulativa:
-        //   cost = max(0, min(totalGb, 100) - 10) * 0.05
-        //        + max(0, min(totalGb, 1000) - 100) * 0.03
-        //        + max(0, totalGb - 1000) * 0.01
+        /* Calculo de campos adicionales:
+           - totalGb = totalBytes / (1024^3)
+           - instanceCount = $size de distinctInstances
+           - bandwidthCost = pricing escalonado con $switch:
+               0-10 GB   → $0.00/GB (gratis)
+               10-100 GB → $0.05/GB (solo la porción que excede 10 GB)
+               100-1000  → $0.03/GB (solo la porción que excede 100 GB)
+               1000+ GB  → $0.01/GB (solo la porción que excede 1000 GB)
+        
+         Fórmula acumulativa:
+           cost = max(0, min(totalGb, 100) - 10) * 0.05
+                + max(0, min(totalGb, 1000) - 100) * 0.03
+                + max(0, totalGb - 1000) * 0.01
+        */
         Document totalGbExpr = new Document("$divide", Arrays.asList("$totalBytes", GB));
 
-        // Tramo 1: (min(totalGb, 100) - 10) * 0.05, con floor en 0
+        // 1er Rango: (min(totalGb, 100) - 10) * 0.05, con floor en 0
         Document tramo1 = new Document("$multiply", Arrays.asList(
                 new Document("$max", Arrays.asList(0.0,
                         new Document("$subtract", Arrays.asList(
@@ -110,7 +106,7 @@ public class BandwidthAggregationService {
                                 10.0)))),
                 0.05));
 
-        // Tramo 2: (min(totalGb, 1000) - 100) * 0.03, con floor en 0
+        // 2do Rango: (min(totalGb, 1000) - 100) * 0.03, con floor en 0
         Document tramo2 = new Document("$multiply", Arrays.asList(
                 new Document("$max", Arrays.asList(0.0,
                         new Document("$subtract", Arrays.asList(
@@ -118,7 +114,7 @@ public class BandwidthAggregationService {
                                 100.0)))),
                 0.03));
 
-        // Tramo 3: (totalGb - 1000) * 0.01, con floor en 0
+        // 3er Rango: (totalGb - 1000) * 0.01, con floor en 0
         Document tramo3 = new Document("$multiply", Arrays.asList(
                 new Document("$max", Arrays.asList(0.0,
                         new Document("$subtract", Arrays.asList(totalGbExpr, 1000.0)))),
@@ -128,19 +124,21 @@ public class BandwidthAggregationService {
                 new Document("$add", Arrays.asList(tramo1, tramo2, tramo3)),
                 2));
 
+        // Agregamos los campos calculados al documento resultante
         pipeline.add(context -> new Document("$addFields", new Document()
                 .append("totalGb", new Document("$round", Arrays.asList(totalGbExpr, 4)))
                 .append("instanceCount", new Document("$size", "$distinctInstances"))
                 .append("bandwidthCost", bandwidthCostExpr)));
 
-        // ── Stage 4: $sort ──────────────────────────────────────────────
+        // Adicionalmente, ordenamos los resultados por totalBytes descendente para ver los clientes con mayor consumo primero
         pipeline.add(Aggregation.sort(org.springframework.data.domain.Sort.Direction.DESC, "totalBytes"));
 
-        // ── Ejecutar ────────────────────────────────────────────────────
+        // Ejecutar el pipeline 
         Aggregation aggregation = Aggregation.newAggregation(pipeline);
         AggregationResults<Document> results = mongoTemplate.aggregate(
                 aggregation, COLLECTION, Document.class);
 
+        // Convertimos los resultados a DTOs de reporte
         List<BandwidthCostReport> reports = new ArrayList<>();
         for (Document doc : results.getMappedResults()) {
             Document idDoc = doc.get("_id", Document.class);
@@ -157,13 +155,12 @@ public class BandwidthAggregationService {
                     .build());
         }
 
+        // Log de información sobre la cantidad de resultados obtenidos
         log.info("Pipeline 1 ($group): periodo={}, userId={}, resultados={}", period, userId, reports.size());
         return reports;
     }
 
-    // ────────────────────────────────────────────────────────────────────────
     // Pipeline 2: Distribución por rangos de consumo ($bucket)
-    // ────────────────────────────────────────────────────────────────────────
 
     /**
      * Aggregation Pipeline que clasifica a los clientes en rangos de consumo
@@ -185,22 +182,21 @@ public class BandwidthAggregationService {
      * @param period periodo de facturación en formato "YYYY-MM"
      * @return lista de reportes por rango de consumo
      */
+
     public List<BandwidthBucketReport> getDistributionByBucket(String period) {
         List<AggregationOperation> pipeline = new ArrayList<>();
 
-        // ── Stage 1: $match ─────────────────────────────────────────────
+        // Hacemos el $match 
         pipeline.add(Aggregation.match(Criteria.where("billingPeriod").is(period)));
 
-        // ── Stage 2: $group ─────────────────────────────────────────────
-        // Pre-agrupa totalBytes por userId para tener un total por cliente
+        // Luego realizamos el $group. Esto pre-agrupa totalBytes por userId para tener un total por cliente
         pipeline.add(Aggregation.group("userId")
                 .sum("totalBytes").as("totalBytes"));
 
-        // ── Stage 3: $addFields ─────────────────────────────────────────
-        // Convierte totalBytes a GB para el bucketeo
+        // Con el $addFields Convertimos el totalBytes a GB para el bucket
         Document totalGbExpr = new Document("$divide", Arrays.asList("$totalBytes", GB));
 
-        // Calcula el costo con la misma fórmula escalonada del pipeline 1
+        // Calcula el costo con la misma fórmula del pipeline 1
         Document tramo1 = new Document("$multiply", Arrays.asList(
                 new Document("$max", Arrays.asList(0.0,
                         new Document("$subtract", Arrays.asList(
@@ -224,10 +220,9 @@ public class BandwidthAggregationService {
                 .append("totalGb", new Document("$round", Arrays.asList(totalGbExpr, 4)))
                 .append("cost", costExpr)));
 
-        // ── Stage 4: $bucket ────────────────────────────────────────────
-        // Clasifica clientes en rangos de consumo por totalGb.
-        // boundaries: [0, 1, 10, 100, 1000, Infinity)
-        // Para cada bucket acumula: cantidad de clientes, total de GB, total de costo
+        /* Finalmente, el $bucket para clasificar clientes en rangos de consumo por totalGb.
+        Para cada bucket acumula: cantidad de clientes, total de GB, total de costo
+        */
         Document bucketStage = new Document("$bucket", new Document()
                 .append("groupBy", "$totalGb")
                 .append("boundaries", Arrays.asList(0.0, 1.0, 10.0, 100.0, 1000.0))
@@ -237,14 +232,15 @@ public class BandwidthAggregationService {
                         .append("totalGbInBucket", new Document("$sum", "$totalGb"))
                         .append("totalCostInBucket", new Document("$sum", "$cost"))));
 
+        // Agregamos $bucket al pipeline
         pipeline.add(context -> bucketStage);
 
-        // ── Ejecutar ────────────────────────────────────────────────────
+        // Ejecutamos el pipeline y obtenemos los resultados
         Aggregation aggregation = Aggregation.newAggregation(pipeline);
         AggregationResults<Document> results = mongoTemplate.aggregate(
                 aggregation, COLLECTION, Document.class);
 
-        // Labels para los rangos
+        // Labels para los rangos de consumo y sus límites 
         String[] labels = {"0 – 1 GB", "1 – 10 GB", "10 – 100 GB", "100 – 1,000 GB", "1,000+ GB"};
         double[][] ranges = {{0, 1}, {1, 10}, {10, 100}, {100, 1000}, {1000, Double.MAX_VALUE}};
 
@@ -253,6 +249,7 @@ public class BandwidthAggregationService {
             Object idRaw = doc.get("_id");
             int rangeIndex = resolveRangeIndex(idRaw);
 
+        // Creamos el reporte para cada bucket, usando los límites y etiquetas correspondientes
             reports.add(BandwidthBucketReport.builder()
                     .bucketMinGb(rangeIndex >= 0 && rangeIndex < ranges.length ? ranges[rangeIndex][0] : 1000.0)
                     .bucketMaxGb(rangeIndex >= 0 && rangeIndex < ranges.length
@@ -265,18 +262,17 @@ public class BandwidthAggregationService {
                     .build());
         }
 
+        // Log de información sobre la cantidad de buckets obtenidos
         log.info("Pipeline 2 ($bucket): periodo={}, rangos={}", period, reports.size());
         return reports;
     }
 
-    // ────────────────────────────────────────────────────────────────────────
-    // Helpers de conversión segura de tipos
-    // ────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Resuelve el índice del rango según el _id del bucket.
-     * Si el _id es numérico, corresponde al boundary; si es "enterprise", es el último.
-     */
+        // Bloque de funciones auxiliares 
+    
+        /**
+         * Resuelve el índice del rango según el _id del bucket.
+         * Si el _id es numérico, corresponde al boundary; si es "enterprise", es el último.
+        */
     private int resolveRangeIndex(Object idRaw) {
         if (idRaw instanceof String && "enterprise".equals(idRaw)) return 4;
         double val = toDouble(idRaw);
@@ -287,6 +283,11 @@ public class BandwidthAggregationService {
         return 4;
     }
 
+        /**
+         * Convierte un objeto a Long, manejando null y tipos numéricos.
+         * @param o objeto a convertir
+         * @return valor Long correspondiente
+         */
     private static Long toLong(Object o) {
         if (o == null) return 0L;
         if (o instanceof Long) return (Long) o;
@@ -295,6 +296,11 @@ public class BandwidthAggregationService {
         return Long.parseLong(o.toString());
     }
 
+        /**
+         * Convierte un objeto a Double, manejando null y tipos numéricos.
+         * @param o objeto a convertir
+         * @return valor Double correspondiente
+         */
     private static Double toDouble(Object o) {
         if (o == null) return 0.0;
         if (o instanceof Double) return (Double) o;
@@ -303,6 +309,11 @@ public class BandwidthAggregationService {
         return Double.parseDouble(o.toString());
     }
 
+        /**
+         * Convierte un objeto a Integer, manejando null y tipos numéricos.
+         * @param o objeto a convertir
+         * @return valor Integer correspondiente
+         */
     private static Integer toInt(Object o) {
         if (o == null) return 0;
         if (o instanceof Integer) return (Integer) o;
