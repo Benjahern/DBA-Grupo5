@@ -4,14 +4,19 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@Document(collection = "consumption")
 public class Consumption {
 
+    @Id
     private Long Consumption_id;
 
     private Double Cpu_stats;
@@ -26,5 +31,6 @@ public class Consumption {
      */
     private Long Instance_id;
 
+    @Indexed(expireAfterSeconds = 2592000)
     private LocalDateTime Created_at;
 }
