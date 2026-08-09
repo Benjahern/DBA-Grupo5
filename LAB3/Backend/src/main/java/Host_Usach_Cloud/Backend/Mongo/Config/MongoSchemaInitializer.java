@@ -37,6 +37,7 @@ public class MongoSchemaInitializer implements ApplicationRunner {
         dropStaleIndexes(db);
         ensureInstancesCollection(db);
         ensureClientQuotasCollection(db);
+        ensureBandwidthUsageCollection(db);
         backfillNumericIds();
     }
 
@@ -181,6 +182,26 @@ public class MongoSchemaInitializer implements ApplicationRunner {
                 .append("properties", new Document()
                         .append("maxInstances", new Document("bsonType", "int").append("minimum", 0))
                         .append("activeCount", new Document("bsonType", "int").append("minimum", 0))
+                ));
+        applyValidator(db, name, validator);
+    }
+
+    private void ensureBandwidthUsageCollection(MongoDatabase db) {
+        String name = "bandwidth_usage";
+        Document validator = new Document("$jsonSchema", new Document()
+                .append("bsonType", "object")
+                .append("required", List.of(
+                        "userId", "instanceId", "bytesIn", "bytesOut",
+                        "totalBytes", "timestamp", "billingPeriod"))
+                .append("properties", new Document()
+                        .append("userId", new Document("bsonType", "long"))
+                        .append("instanceId", new Document("bsonType", "long"))
+                        .append("bytesIn", new Document("bsonType", "long").append("minimum", 0))
+                        .append("bytesOut", new Document("bsonType", "long").append("minimum", 0))
+                        .append("totalBytes", new Document("bsonType", "long").append("minimum", 0))
+                        .append("timestamp", new Document("bsonType", "date"))
+                        .append("billingPeriod", new Document("bsonType", "string")
+                                .append("pattern", "^\\d{4}-\\d{2}$"))
                 ));
         applyValidator(db, name, validator);
     }
