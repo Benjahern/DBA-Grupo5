@@ -107,7 +107,7 @@ public class BandwidthAlertListenerService {
                 .userId(userId)
                 .alertType(ALERT_TYPE)
                 .message(String.format(
-                        "Has superado el umbral de consumo de ancho de banda mensual (%.2f GB).",
+                        "Usuario %d superó el umbral de consumo de ancho de banda mensual (%.2f GB).", userId,
                         threshold / (1024.0 * 1024.0 * 1024.0)))
                 .timestamp(LocalDateTime.now())
                 .billingPeriod(period)

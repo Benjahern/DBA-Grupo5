@@ -127,7 +127,7 @@ const updateRoles = () => {
   // { User_id, Email, Name, Roles, Sub }. Mantenemos compatibilidad con tokens
   // viejos (Keycloak: realm_access.roles) por si quedara alguno en localStorage.
   if (user) {
-    userId.value = String(user.User_id ?? user.sub ?? '');
+    userId.value = String(user.User_id ?? user.sub ?? user.Sub ?? user.id ?? '');
   }
   const rawRoles =
       user?.Roles

@@ -90,7 +90,7 @@ Capa espacial construida sobre PostGIS. La base de datos extiende `postgis/postg
 
 ```bash
 git clone https://github.com/Benjahern/DBA-Grupo5.git
-cd DBA-Grupo5/LAB2
+cd DBA-Grupo5/LAB3
 ```
 
 ### Paso 2: Configurar variables de entorno
