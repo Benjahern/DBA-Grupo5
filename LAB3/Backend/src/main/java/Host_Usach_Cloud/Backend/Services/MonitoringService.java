@@ -2,6 +2,7 @@ package Host_Usach_Cloud.Backend.Services;
 
 import Host_Usach_Cloud.Backend.Entity.Consumption;
 import Host_Usach_Cloud.Backend.Mongo.Entity.BandwidthUsageDocument;
+import Host_Usach_Cloud.Backend.Mongo.Entity.CpuMetricsDocument;
 import Host_Usach_Cloud.Backend.Mongo.Entity.InstanceDocument;
 import Host_Usach_Cloud.Backend.Mongo.Repository.InstanceMongoRepository;
 import Host_Usach_Cloud.Backend.Repository.ConsumptionRepository;
@@ -10,6 +11,8 @@ import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.command.StatsCmd;
 import com.github.dockerjava.api.model.Statistics;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class MonitoringService {
+
+    private static final Logger log = LoggerFactory.getLogger(MonitoringService.class);
 
     private final DockerClient dockerClient;
     private final InstanceMongoRepository instanceMongoRepository;
@@ -107,6 +112,20 @@ public class MonitoringService {
                                 mongoTemplate.insert(bwDoc, "bandwidth_usage");
                             } catch (Exception bwEx) {
                                 System.err.println("Error guardando bandwidth_usage: " + bwEx.getMessage());
+                            }
+
+                            CpuMetricsDocument cpuDoc = CpuMetricsDocument.builder()
+                                    .userId(instance.getUserId())
+                                    .instanceId(instance.getNumericId())
+                                    .cpuPercent(cpuUsage)
+                                    .timestamp(now)
+                                    .build();
+                            try {
+                                mongoTemplate.insert(cpuDoc, "cpu_metrics");
+                                log.debug("Guardado cpu_metrics user={} instance={} cpuPercent={}",
+                                        instance.getUserId(), instance.getNumericId(), cpuUsage);
+                            } catch (Exception cpuEx) {
+                                log.error("Error guardando cpu_metrics: {}", cpuEx.getMessage(), cpuEx);
                             }
 
                             try { close(); } catch (IOException e) {

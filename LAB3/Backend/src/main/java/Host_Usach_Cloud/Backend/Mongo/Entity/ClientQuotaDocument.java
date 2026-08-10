@@ -20,4 +20,7 @@ public class ClientQuotaDocument {
     private Integer maxInstances;
 
     private Integer activeCount;
+
+    /** Límite de ancho de banda mensual del plan, en bytes. Null = sin límite definido. */
+    private Long maxBandwidthBytes;
 }

@@ -31,7 +31,7 @@
       >
         <!-- Badge del tipo de alerta -->
         <div class="alert-badge" :class="alert.alertType">
-          <span v-if="alert.alertType === 'BANDWIDTH_QUOTA_EXCEEDED'">⚠️</span>
+          <span v-if="alert.alertType === 'BANDWIDTH_QUOTA_EXCEEDED' || alert.alertType === 'CPU_USAGE_HIGH'">⚠️</span>
           <span v-else>ℹ️</span>
         </div>
 
@@ -91,6 +91,7 @@ const unreadCount = computed(() => {
 const formatAlertType = (type) => {
   const types = {
     BANDWIDTH_QUOTA_EXCEEDED: 'Límite de Ancho de Banda Excedido',
+    CPU_USAGE_HIGH: 'Uso de CPU Muy Alto',
     CPU_THRESHOLD: 'Umbral de CPU Alcanzado',
     MEMORY_THRESHOLD: 'Umbral de Memoria Alcanzado',
   };
@@ -217,7 +218,8 @@ const formatTime = (timestamp) => {
   padding-top: 2px;
 }
 
-.alert-badge.BANDWIDTH_QUOTA_EXCEEDED {
+.alert-badge.BANDWIDTH_QUOTA_EXCEEDED,
+.alert-badge.CPU_USAGE_HIGH {
   color: #ff9800;
 }
 

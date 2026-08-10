@@ -18,21 +18,21 @@
 							<span>Region</span>
 							<select v-model="regionId">
 								<option value="">Selecciona Region</option>
-								<option v-for="region in regions" :key="region.region_id" :value="region.region_id">
-									{{ region.name }}
-								</option>
-							</select>
-						</label>
+                                <option v-for="region in regionsWithDatacenters" :key="region.region_id" :value="region.region_id">
+                                    {{ region.name }}
+                                </option>
+                            </select>
+                        </label>
 
-						<label class="field">
-							<span>Datacenter</span>
-							<select v-model="datacenterId">
-								<option value="">Selecciona Datacenter</option>
-								<option v-for="dc in datacenters" :key="dc.id" :value="dc.id">
-									{{ dc.name }}
-								</option>
-							</select>
-						</label>
+                        <label class="field">
+                            <span>Datacenter</span>
+                            <select v-model="datacenterId" :disabled="!regionId">
+                                <option value="">Selecciona Datacenter</option>
+                                <option v-for="dc in filteredDatacenters" :key="dc.id" :value="dc.id">
+                                    {{ dc.name }}
+                                </option>
+                            </select>
+                        </label>
 
 						<label class="field">
 							<span>CPU</span>
@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import api from '../../services/http-common.js';
 import { useAlert } from '../Alerts/useAlert.js';
 import ConfirmInstance from './ConfirmInstance.vue';
@@ -125,8 +125,43 @@ const confirmSummary = computed(() => ({
 		: ''
 }));
 
+const regionsWithDatacenters = computed(() => {
+	const availableRegionIds = new Set(
+		datacenters.value.map((dc) => String(dc.regionId ?? dc.region_id))
+	);
+	return regions.value.filter((region) =>
+		availableRegionIds.has(String(region.region_id))
+	);
+});
+
+const filteredDatacenters = computed(() => {
+	if (!regionId.value) {
+		return [];
+	}
+	return datacenters.value.filter((dc) =>
+		String(dc.regionId ?? dc.region_id) === String(regionId.value)
+	);
+});
+
+watch(regionId, (newValue) => {
+	if (!newValue) {
+		datacenterId.value = '';
+		return;
+	}
+
+	const selectedDc = datacenters.value.find((dc) =>
+		String(dc.id) === String(datacenterId.value)
+	);
+
+	if (selectedDc && String(selectedDc.regionId ?? selectedDc.region_id) !== String(newValue)) {
+		datacenterId.value = '';
+	}
+});
+
 const isFormValid = computed(() =>
 	name.value.trim() !== '' &&
+	regionId.value !== '' &&
+	datacenterId.value !== '' &&
 	cpuId.value !== '' &&
 	ramId.value !== '' &&
 	storageId.value !== ''

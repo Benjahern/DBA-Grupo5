@@ -28,4 +28,10 @@ public class AlertDocument {
     private LocalDateTime timestamp;
 
     private boolean read;
+
+    /** Periodo de facturación al que corresponde la alerta (formato "YYYY-MM"). */
+    private String billingPeriod;
+
+    /** numericId de la instancia afectada (null para alertas a nivel de usuario). */
+    private Long instanceId;
 }

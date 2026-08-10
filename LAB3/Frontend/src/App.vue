@@ -20,7 +20,7 @@ const userName = computed(() => {
 // ID del usuario para el stream de alertas
 const userId = computed(() => {
   const user = getUser();
-  return user?.sub || user?.id || null;
+  return user?.Sub || user?.User_id || user?.sub || user?.id || null;
 });
 
 const handleLogout = async () => {

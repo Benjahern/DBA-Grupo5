@@ -10,7 +10,8 @@ import { showGlobalAlert } from '../components/Alerts/useAlert.js';
  * @param {Object} handlers - Callbacks para manejar eventos
  * @param {Function} handlers.onAlert - Llamado cuando se recibe una alerta
  * @param {Function} handlers.onError - Llamado en caso de error
- */
+*/
+
 export function openAlertStream(userId, handlers = {}) {
   const { onAlert, onError } = handlers;
 
@@ -39,9 +40,9 @@ export function openAlertStream(userId, handlers = {}) {
       }
 
       // Mostrar alerta global dependiendo del tipo
-      if (alertData.alertType === 'BANDWIDTH_QUOTA_EXCEEDED') {
+      if (alertData.alertType === 'BANDWIDTH_QUOTA_EXCEEDED' || alertData.alertType === 'CPU_USAGE_HIGH') {
         showGlobalAlert({
-          message: alertData.message || 'Has superado el umbral de ancho de banda',
+          message: alertData.message || 'Has superado un umbral de uso',
           severity: 'warning',
           autoHideMs: 0, // Mantener visible hasta que el usuario la cierre
         });
@@ -51,12 +52,18 @@ export function openAlertStream(userId, handlers = {}) {
     }
   };
 
+  eventSource.onopen = () => {
+    console.log('Alert stream connected');
+  }
+
   eventSource.onerror = (error) => {
     console.error('Alert stream error:', error);
-    eventSource.close();
 
-    if (typeof onError === 'function') {
-      onError(error);
+    if (eventSource.readyState === EventSource.CLOSED) {
+      console.warn('Alert stream closed permanently');
+      if (typeof onError === 'function') {
+        onError(error);
+      }
     }
   };
 

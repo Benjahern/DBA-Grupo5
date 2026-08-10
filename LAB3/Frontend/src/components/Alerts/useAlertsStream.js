@@ -30,8 +30,8 @@ export function useAlertsStream(userId) {
         // Agregar la alerta al inicio del array (alertas más recientes primero)
         alerts.value.unshift(alertData);
 
-        // Opcional: limitar a últimas 50 alertas para no saturar memoria
-        if (alerts.value.length > 50) {
+        // Opcional: limitar a últimas 10 alertas para no saturar memoria
+        if (alerts.value.length > 10) {
           alerts.value.pop();
         }
       },
