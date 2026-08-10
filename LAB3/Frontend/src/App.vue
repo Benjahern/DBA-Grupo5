@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import Sidebar from './components/Structure/Sidebar.vue';
 import TransitionAlert from './components/Alerts/TransitionAlert.vue';
+import AlertsPanel from './components/Alerts/AlertsPanel.vue';
 import router from './routes/index.js';
 import api from './services/http-common.js';
 import { clearSession, getUser } from './services/auth.js';
@@ -14,6 +15,12 @@ const userName = computed(() => {
       || user?.preferred_username
       || user?.email
       || 'Usuario';
+});
+
+// ID del usuario para el stream de alertas
+const userId = computed(() => {
+  const user = getUser();
+  return user?.Sub || user?.User_id || user?.sub || user?.id || null;
 });
 
 const handleLogout = async () => {
@@ -39,6 +46,11 @@ const showSidebar = computed(() => {
 <template>
   <div class="app-layout">
     <TransitionAlert />
+
+    <!-- Panel de alertas en tiempo real (Change Streams) -->
+    <div v-if="showSidebar && userId" class="alerts-widget">
+      <AlertsPanel :user-id="userId" />
+    </div>
 
     <Sidebar
       v-if="showSidebar"
@@ -72,6 +84,28 @@ body {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  position: relative;
+}
+
+.alerts-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 320px;
+  max-height: 400px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .main-content {
